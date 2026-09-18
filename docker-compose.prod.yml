@@ -1,0 +1,60 @@
+name: dixtrie
+# PRODUCTION (VPS):
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Two separate containers: backend + mongo.
+#  - Mongo has authentication on and is NOT published to the host; only the
+#    backend can reach it, over the private compose network.
+#  - The backend is published on host port 3100; Nginx Proxy Manager (already on
+#    the VPS) forwards api-test.dixtri.com -> <vps-ip>:3100 and handles HTTPS.
+services:
+  mongo:
+    image: mongo:7
+    container_name: dixtrie-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?set MONGO_ROOT_USER in .env.prod}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env.prod}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: dixtrie-backend
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: ${API_PREFIX:-v1}
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/${MONGO_DB_NAME:-multicompany_commerce}?authSource=admin
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env.prod}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env.prod}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      OTP_CODE_TTL_SECONDS: ${OTP_CODE_TTL_SECONDS:-300}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://dixtriv2-one.vercel.app}
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST in .env.prod}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-Dixtri <no-reply@dixtri.com>}
+    ports:
+      - "3100:3000"
+    networks:
+      - internal
+
+networks:
+  internal:
+
+volumes:
+  mongo_data:

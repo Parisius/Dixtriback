@@ -1,0 +1,36 @@
+name: dixtrie
+# LOCAL testing:  docker compose up --build
+# Two separate containers: backend + mongo. Mongo is published on
+# localhost:27017 so you can inspect it with Compass; no auth (local only).
+services:
+  mongo:
+    image: mongo:7
+    container_name: dixtrie-mongo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: dixtrie-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Overrides MONGODB_URI from .env: inside the network Mongo is "mongo", not localhost.
+      MONGODB_URI: mongodb://mongo:27017/multicompany_commerce
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo_data:

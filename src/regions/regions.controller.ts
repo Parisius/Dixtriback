@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RegionsService } from './regions.service';
+import { ZonesService } from './zones.service';
 import { CreateRegionDto, UpdateRegionDto } from './dto/region.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
@@ -10,7 +11,10 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 @ApiBearerAuth()
 @Controller('regions')
 export class RegionsController {
-  constructor(private readonly regionsService: RegionsService) {}
+  constructor(
+    private readonly regionsService: RegionsService,
+    private readonly zonesService: ZonesService,
+  ) {}
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
@@ -38,6 +42,18 @@ export class RegionsController {
   @ApiOperation({ summary: 'Récupérer une région par id' })
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.regionsService.findById(user, id);
+  }
+
+  @Get(':id/zones')
+  @ApiOperation({ summary: "Lister les zones d'une région" })
+  async zones(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const region = await this.regionsService.findById(user, id); // 404 if not in scope
+    return this.zonesService.findAll(user, page, limit, String(region.companyId), String(region._id));
   }
 
   @Put(':id')

@@ -93,8 +93,8 @@ export class UsersService {
       return this.create({ ...data, companyId: null });
     }
     const companyId = await this.tenancy.companyForCreate(user, data.companyId);
-    await this.regions.assertUsable(companyId, data.regionId);
-    return this.create({ ...data, companyId });
+    const geo = await this.regions.resolveGeo(companyId, null, data);
+    return this.create({ ...data, ...geo, companyId });
   }
 
   async findAllScoped(
@@ -124,10 +124,10 @@ export class UsersService {
     if (target.role === Role.SUPER_ADMIN && !isSelf) {
       throw new ForbiddenException('Un super admin ne peut être modifié que par lui-même.');
     }
-    await this.regions.assertUsable(target.companyId, dto.regionId);
+    const geo = await this.regions.resolveGeo(target.companyId, target, dto);
     // companyId is immutable here; password is hashed; role changes are guarded.
     const { password, companyId: _c, role, ...rest } = strip(dto);
-    const changes: Record<string, any> = { ...rest };
+    const changes: Record<string, any> = { ...rest, ...geo };
     if (role !== undefined) {
       if (isSelf) throw new ForbiddenException('Vous ne pouvez pas modifier votre propre rôle.');
       if (role === Role.SUPER_ADMIN) {

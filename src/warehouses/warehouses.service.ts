@@ -20,8 +20,8 @@ export class WarehousesService {
 
   async create(user: AuthUser, dto: Record<string, any>) {
     const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
-    await this.regions.assertUsable(companyId, dto.regionId);
-    return new this.warehouseModel({ ...dto, companyId }).save();
+    const geo = await this.regions.resolveGeo(companyId, null, dto);
+    return new this.warehouseModel({ ...dto, ...geo, companyId }).save();
   }
 
   async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string, tier?: string) {
@@ -47,9 +47,9 @@ export class WarehousesService {
 
   async update(user: AuthUser, id: string, dto: Record<string, any>) {
     const current = await this.findById(user, id);
-    await this.regions.assertUsable(current.companyId, dto.regionId);
+    const geo = await this.regions.resolveGeo(current.companyId, current, dto);
     const updated = await this.warehouseModel
-      .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
+      .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable({ ...dto, ...geo }) }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Entrepôt introuvable');
     return updated;

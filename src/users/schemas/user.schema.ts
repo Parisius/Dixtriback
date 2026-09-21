@@ -37,6 +37,10 @@ export class User {
   @Prop({ type: String, default: null })
   regionId?: string | null;
 
+  /** Subdivision of the region (POST /v1/zones). */
+  @Prop({ type: String, default: null })
+  zoneId?: string | null;
+
   @Prop({ type: String, default: null })
   enterpriseId?: string | null;
 

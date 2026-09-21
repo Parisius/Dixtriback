@@ -182,6 +182,16 @@ Une région appartient à **une entreprise** (`POST /v1/regions`, admin ou super
 `DELETE` = désactivation). Le `regionId` d'une boutique, d'un entrepôt ou d'un utilisateur doit
 être l'id d'une région **active de la même entreprise** (sinon `400`). Nom unique par entreprise (`409`).
 
+### Zones (subdivisions d'une région)
+
+Une région peut avoir **plusieurs zones** (`POST /v1/zones` avec `regionId` ; `GET /v1/zones?regionId=`,
+`GET /v1/regions/:id/zones`, `PUT`, `DELETE`). Une zone appartient à une seule région (donc à une seule
+entreprise) et ne peut pas être déplacée ; nom unique par région. Désactiver une région désactive ses zones.
+
+Boutiques, entrepôts et utilisateurs (ex. agent terrain) peuvent porter un `zoneId` en plus du `regionId` :
+la zone doit être active, de la même entreprise, et **dans la région indiquée** (si `regionId` est omis,
+il est déduit de la zone). Changer de région en gardant une ancienne zone est refusé (`400`).
+
 Migration d'une base où `regionId` était du texte libre (ex. `"littoral"`) :
 `node dist/database/backfill-regions.js` (crée les régions manquantes et remplace le texte par leur id).
 

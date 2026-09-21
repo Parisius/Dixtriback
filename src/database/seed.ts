@@ -7,6 +7,7 @@ import { CompanySchema } from '../companies/schemas/company.schema';
 import { WarehouseSchema, WarehouseTier } from '../warehouses/schemas/warehouse.schema';
 import { StoreSchema, StoreType } from '../stores/schemas/store.schema';
 import { RegionSchema } from '../regions/schemas/region.schema';
+import { ZoneSchema } from '../regions/schemas/zone.schema';
 import { Role } from '../common/constants/roles.enum';
 
 async function seed() {
@@ -19,6 +20,7 @@ async function seed() {
   const WarehouseModel = mongoose.model('Warehouse', WarehouseSchema);
   const StoreModel = mongoose.model('Store', StoreSchema);
   const RegionModel = mongoose.model('Region', RegionSchema);
+  const ZoneModel = mongoose.model('Zone', ZoneSchema);
 
   const existing = await UserModel.findOne({ email: 'admin@example.com' });
   if (existing) {
@@ -56,6 +58,13 @@ async function seed() {
     country: 'BJ',
   });
   console.log('Région créée:', region.id);
+  const zone = await ZoneModel.create({
+    companyId: company.id,
+    regionId: region.id,
+    name: 'Cotonou Centre',
+    code: 'COT-C',
+  });
+  console.log('Zone créée:', zone.id);
 
   const countryWarehouse = await WarehouseModel.create({
     companyId: company.id,
@@ -77,6 +86,7 @@ async function seed() {
     name: 'Boutique Centre-Ville',
     type: StoreType.PHYSICAL,
     regionId: region.id,
+    zoneId: zone.id,
   });
   console.log('Boutique créée:', store.id);
 

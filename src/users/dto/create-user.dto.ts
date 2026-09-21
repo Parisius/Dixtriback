@@ -47,4 +47,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   regionId?: string;
+
+  @ApiPropertyOptional({
+    description: "Id d'une zone (subdivision de la région). Doit appartenir à `regionId` ; si `regionId` est omis, il est déduit de la zone.",
+  })
+  @IsOptional()
+  @IsString()
+  zoneId?: string;
 }

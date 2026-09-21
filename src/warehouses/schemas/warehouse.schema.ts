@@ -22,6 +22,10 @@ export class Warehouse {
   @Prop({ type: String, default: null })
   regionId?: string | null;
 
+  /** Subdivision of the region (POST /v1/zones). */
+  @Prop({ type: String, default: null })
+  zoneId?: string | null;
+
   @Prop({ type: Types.ObjectId, ref: 'User', default: null })
   managerId?: Types.ObjectId | null;
 

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type CompanyDocument = Company & Document;
 
@@ -22,6 +22,10 @@ export class Company {
 
   @Prop({ type: Object, default: {} })
   branding: Record<string, any>;
+
+  /** The super admin who created this company — the link that gives them access to it. */
+  @Prop({ type: Types.ObjectId, ref: 'User', index: true })
+  createdBy?: Types.ObjectId;
 
   @Prop({ default: true })
   isActive: boolean;

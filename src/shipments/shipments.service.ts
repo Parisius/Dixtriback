@@ -4,22 +4,26 @@ import { Model } from 'mongoose';
 import { Shipment, ShipmentDocument, ShipmentStatus } from './schemas/shipment.schema';
 import { UnitsService } from '../units/units.service';
 import { ReceiveShipmentDto } from './dto/shipment.dto';
+import { TenancyService } from '../tenancy/tenancy.service';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class ShipmentsService {
   constructor(
     @InjectModel(Shipment.name) private shipmentModel: Model<ShipmentDocument>,
     private unitsService: UnitsService,
+    private tenancy: TenancyService,
   ) {}
 
-  create(dto: Record<string, any>) {
-    return new this.shipmentModel(dto).save();
+  async create(user: AuthUser, dto: Record<string, any>) {
+    const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    return new this.shipmentModel({ ...dto, companyId }).save();
   }
 
-  async findAll(page = 1, limit = 20, companyId?: string, status?: string) {
+  async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string, status?: string) {
     const filter: Record<string, any> = {};
-    if (companyId) filter.companyId = companyId;
     if (status) filter.status = status;
+    Object.assign(filter, await this.tenancy.companyFilter(user, companyId));
     const [data, total] = await Promise.all([
       this.shipmentModel
         .find(filter)
@@ -32,15 +36,15 @@ export class ShipmentsService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
-  async findById(id: string) {
+  async findById(user: AuthUser, id: string) {
     const shipment = await this.shipmentModel.findById(id).exec();
-    if (!shipment) throw new NotFoundException('Expédition introuvable');
-    return shipment;
+    return this.tenancy.assertOwns(user, shipment, 'Expédition introuvable');
   }
 
-  async update(id: string, dto: Record<string, any>) {
+  async update(user: AuthUser, id: string, dto: Record<string, any>) {
+    await this.findById(user, id);
     const updated = await this.shipmentModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Expédition introuvable');
     return updated;
@@ -52,8 +56,8 @@ export class ShipmentsService {
    * spec). Landed cost is the shipment's total cost (goods + freight +
    * duties + handling) spread evenly across every accepted unit.
    */
-  async receive(id: string, dto: ReceiveShipmentDto) {
-    const shipment = await this.findById(id);
+  async receive(user: AuthUser, id: string, dto: ReceiveShipmentDto) {
+    const shipment = await this.findById(user, id);
 
     if (dto.inspectionResult === 'rejected') {
       shipment.status = ShipmentStatus.INSPECTED;

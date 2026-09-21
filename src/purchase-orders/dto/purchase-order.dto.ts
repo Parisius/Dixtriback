@@ -1,10 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreatePurchaseOrderDto {
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description:
+      "Requis pour un super admin (l'une de ses entreprises). Pour les autres rôles, l'entreprise est celle du compte connecté.",
+  })
+  @IsOptional()
   @IsString()
-  companyId: string;
+  companyId?: string;
 
   @ApiProperty()
   @IsString()
@@ -22,6 +27,8 @@ export class CreatePurchaseOrderDto {
 
   @ApiProperty({ type: [Object], description: 'Lines: { productId, quantity, unitCost, ... }' })
   @IsArray()
+  // explicit type: without it, implicit conversion turns each object item into []
+  @Type(() => Object)
   lines: Record<string, any>[];
 }
 

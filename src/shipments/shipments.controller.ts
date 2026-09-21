@@ -4,6 +4,7 @@ import { ShipmentsService } from './shipments.service';
 import { CreateShipmentDto, ReceiveShipmentDto } from './dto/shipment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
+import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Procurement')
 @ApiBearerAuth()
@@ -14,32 +15,33 @@ export class ShipmentsController {
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
   @ApiOperation({ summary: 'Enregistrer une expédition (conteneur/cargo/balle)' })
-  create(@Body() dto: CreateShipmentDto) {
-    return this.shipmentsService.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateShipmentDto) {
+    return this.shipmentsService.create(user, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Suivre les expéditions' })
   findAll(
+    @CurrentUser() user: AuthUser,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('companyId') companyId?: string,
     @Query('status') status?: string,
   ) {
-    return this.shipmentsService.findAll(page, limit, companyId, status);
+    return this.shipmentsService.findAll(user, page, limit, companyId, status);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Détail d\'une expédition' })
-  findOne(@Param('id') id: string) {
-    return this.shipmentsService.findById(id);
+  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.shipmentsService.findById(user, id);
   }
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
   @ApiOperation({ summary: "Mettre à jour une expédition (statut, manifeste, coûts)" })
-  update(@Param('id') id: string, @Body() dto: Record<string, any>) {
-    return this.shipmentsService.update(id, dto);
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: Record<string, any>) {
+    return this.shipmentsService.update(user, id, dto);
   }
 
   @Post(':id/receive')
@@ -47,7 +49,7 @@ export class ShipmentsController {
   @ApiOperation({
     summary: 'Réceptionner une expédition : inspection, éclatement des lots, sérialisation',
   })
-  receive(@Param('id') id: string, @Body() dto: ReceiveShipmentDto) {
-    return this.shipmentsService.receive(id, dto);
+  receive(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReceiveShipmentDto) {
+    return this.shipmentsService.receive(user, id, dto);
   }
 }

@@ -3,9 +3,13 @@ import { IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
 import { StoreType } from '../schemas/store.schema';
 
 export class CreateStoreDto {
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description:
+      "Requis pour un super admin (l'une de ses entreprises). Pour les autres rôles, l'entreprise est celle du compte connecté.",
+  })
+  @IsOptional()
   @IsString()
-  companyId: string;
+  companyId?: string;
 
   @ApiProperty()
   @IsString()

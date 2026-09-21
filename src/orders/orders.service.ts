@@ -5,6 +5,8 @@ import { Order, OrderDocument, OrderChannel, OrderStatus, PaymentMethod } from '
 import { UnitsService } from '../units/units.service';
 import { UnitOwnerType } from '../units/schemas/unit.schema';
 import { CreateOrderDto } from './dto/order.dto';
+import { TenancyService } from '../tenancy/tenancy.service';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 const CREDIT_METHODS = [PaymentMethod.CREDIT, PaymentMethod.INSTALLMENT];
 
@@ -13,6 +15,7 @@ export class OrdersService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     private unitsService: UnitsService,
+    private tenancy: TenancyService,
   ) {}
 
   /**
@@ -22,7 +25,8 @@ export class OrdersService {
    * in-stock, serialized units is picked from the store's own stock and
    * marked sold, which is what actually decrements inventory.
    */
-  async create(dto: CreateOrderDto) {
+  async create(user: AuthUser, dto: CreateOrderDto) {
+    const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
     if (CREDIT_METHODS.includes(dto.paymentMethod)) {
       throw new BadRequestException(
         'Le crédit est réservé aux ventes agent terrain — la boutique est comptant/carte/mobile money uniquement.',
@@ -33,7 +37,10 @@ export class OrdersService {
     const resolvedLines: Record<string, any>[] = [];
 
     for (const line of dto.lines) {
+      // Stock is only picked from units of THIS company: a store id belonging
+      // to another company simply has no matching units.
       const available = await this.unitsService.findAvailable(
+        companyId,
         UnitOwnerType.STORE,
         dto.storeId,
         line.productId,
@@ -46,7 +53,7 @@ export class OrdersService {
       }
       const unitIds: string[] = [];
       for (const unit of available) {
-        await this.unitsService.transfer(unit.id, UnitOwnerType.SOLD, dto.customerId || 'walk-in');
+        await this.unitsService.move(unit.id, UnitOwnerType.SOLD, dto.customerId || 'walk-in');
         unitIds.push(unit.id);
       }
       resolvedLines.push({ ...line, unitIds });
@@ -55,7 +62,7 @@ export class OrdersService {
 
     const order = new this.orderModel({
       channel: OrderChannel.STORE,
-      companyId: dto.companyId,
+      companyId,
       storeId: dto.storeId,
       customerId: dto.customerId || null,
       lines: resolvedLines,
@@ -66,7 +73,7 @@ export class OrdersService {
     return order.save();
   }
 
-  async findAll(query: {
+  async findAll(user: AuthUser, query: {
     page?: number;
     limit?: number;
     companyId?: string;
@@ -76,9 +83,9 @@ export class OrdersService {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
     const filter: Record<string, any> = {};
-    if (query.companyId) filter.companyId = query.companyId;
     if (query.storeId) filter.storeId = query.storeId;
     if (query.customerId) filter.customerId = query.customerId;
+    Object.assign(filter, await this.tenancy.companyFilter(user, query.companyId));
 
     const [data, total] = await Promise.all([
       this.orderModel
@@ -92,21 +99,20 @@ export class OrdersService {
     return { data, total, page, limit };
   }
 
-  async findById(id: string) {
+  async findById(user: AuthUser, id: string) {
     const order = await this.orderModel.findById(id).exec();
-    if (!order) throw new NotFoundException('Commande introuvable');
-    return order;
+    return this.tenancy.assertOwns(user, order, 'Commande introuvable');
   }
 
   /** Handles both generic edits and returns. Setting status to 'returned'
    * restocks every unit sold on this order back to the store. */
-  async update(id: string, dto: Record<string, any>) {
-    const order = await this.findById(id);
+  async update(user: AuthUser, id: string, dto: Record<string, any>) {
+    const order = await this.findById(user, id);
 
     if (dto.status === OrderStatus.RETURNED && order.status !== OrderStatus.RETURNED) {
       for (const line of order.lines) {
         for (const unitId of line.unitIds || []) {
-          await this.unitsService.transfer(
+          await this.unitsService.move(
             unitId,
             UnitOwnerType.STORE,
             order.storeId!.toString(),
@@ -116,7 +122,7 @@ export class OrdersService {
       }
     }
 
-    Object.assign(order, dto);
+    Object.assign(order, this.tenancy.stripImmutable(dto));
     return order.save();
   }
 }

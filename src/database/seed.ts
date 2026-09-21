@@ -44,6 +44,9 @@ async function seed() {
   });
   console.log('Super Admin créé:', superAdmin.email, '(mot de passe: ChangeMe123!)');
 
+  // The super admin is linked to the companies they create (Company.createdBy).
+  await CompanyModel.updateOne({ _id: company._id }, { createdBy: superAdmin._id });
+
   const countryWarehouse = await WarehouseModel.create({
     companyId: company.id,
     name: 'Entrepôt National — Cotonou',

@@ -3,23 +3,25 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Order, OrderDocument } from '../orders/schemas/order.schema';
 import { Unit, UnitDocument, UnitStatus } from '../units/schemas/unit.schema';
+import { TenancyService } from '../tenancy/tenancy.service';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class ReportsService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Unit.name) private unitModel: Model<UnitDocument>,
+    private tenancy: TenancyService,
   ) {}
 
   /** Sales by company, store, product, or cashier over an optional date range. */
-  async sales(params: {
+  async sales(user: AuthUser, params: {
     companyId?: string;
     from?: string;
     to?: string;
     groupBy?: 'store' | 'product' | 'cashier' | 'company';
   }) {
-    const match: Record<string, any> = {};
-    if (params.companyId) match.companyId = new Types.ObjectId(params.companyId);
+    const match: Record<string, any> = await this.tenancy.companyMatch(user, params.companyId);
     if (params.from || params.to) {
       match.createdAt = {};
       if (params.from) match.createdAt.$gte = new Date(params.from);
@@ -61,10 +63,10 @@ export class ReportsService {
   }
 
   /** Stock on hand and simple stockout flag, grouped by owner/status. */
-  async inventory(params: { warehouseId?: string; companyId?: string }) {
+  async inventory(user: AuthUser, params: { warehouseId?: string; companyId?: string }) {
     const match: Record<string, any> = {};
     if (params.warehouseId) match.ownerId = params.warehouseId;
-    if (params.companyId) match.companyId = new Types.ObjectId(params.companyId);
+    Object.assign(match, await this.tenancy.companyMatch(user, params.companyId));
 
     const byStatus = await this.unitModel.aggregate([
       { $match: match },
@@ -79,9 +81,9 @@ export class ReportsService {
   }
 
   /** Revenue vs. landed unit cost, by product — margin at the unit level. */
-  async margin(params: { companyId?: string; from?: string; to?: string }) {
-    const orderMatch: Record<string, any> = {};
-    if (params.companyId) orderMatch.companyId = new Types.ObjectId(params.companyId);
+  async margin(user: AuthUser, params: { companyId?: string; from?: string; to?: string }) {
+    const companyMatch = await this.tenancy.companyMatch(user, params.companyId);
+    const orderMatch: Record<string, any> = { ...companyMatch };
     if (params.from || params.to) {
       orderMatch.createdAt = {};
       if (params.from) orderMatch.createdAt.$gte = new Date(params.from);
@@ -100,8 +102,7 @@ export class ReportsService {
       },
     ]);
 
-    const costMatch: Record<string, any> = { status: UnitStatus.SOLD };
-    if (params.companyId) costMatch.companyId = new Types.ObjectId(params.companyId);
+    const costMatch: Record<string, any> = { status: UnitStatus.SOLD, ...companyMatch };
     const costByProduct = await this.unitModel.aggregate([
       { $match: costMatch },
       { $group: { _id: '$productId', totalLandedCost: { $sum: '$landedUnitCost' } } },

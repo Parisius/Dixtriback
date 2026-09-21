@@ -5,22 +5,26 @@ import { Warehouse, WarehouseDocument } from './schemas/warehouse.schema';
 import { UnitsService } from '../units/units.service';
 import { UnitOwnerType } from '../units/schemas/unit.schema';
 import { TransferStockDto } from './dto/warehouse.dto';
+import { TenancyService } from '../tenancy/tenancy.service';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class WarehousesService {
   constructor(
     @InjectModel(Warehouse.name) private warehouseModel: Model<WarehouseDocument>,
     private unitsService: UnitsService,
+    private tenancy: TenancyService,
   ) {}
 
-  create(dto: Record<string, any>) {
-    return new this.warehouseModel(dto).save();
+  async create(user: AuthUser, dto: Record<string, any>) {
+    const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    return new this.warehouseModel({ ...dto, companyId }).save();
   }
 
-  async findAll(page = 1, limit = 20, companyId?: string, tier?: string) {
+  async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string, tier?: string) {
     const filter: Record<string, any> = {};
-    if (companyId) filter.companyId = companyId;
     if (tier) filter.tier = tier;
+    Object.assign(filter, await this.tenancy.companyFilter(user, companyId));
     const [data, total] = await Promise.all([
       this.warehouseModel
         .find(filter)
@@ -33,15 +37,15 @@ export class WarehousesService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
-  async findById(id: string) {
+  async findById(user: AuthUser, id: string) {
     const warehouse = await this.warehouseModel.findById(id).exec();
-    if (!warehouse) throw new NotFoundException('Entrepôt introuvable');
-    return warehouse;
+    return this.tenancy.assertOwns(user, warehouse, 'Entrepôt introuvable');
   }
 
-  async update(id: string, dto: Record<string, any>) {
+  async update(user: AuthUser, id: string, dto: Record<string, any>) {
+    await this.findById(user, id);
     const updated = await this.warehouseModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Entrepôt introuvable');
     return updated;
@@ -53,8 +57,9 @@ export class WarehousesService {
    * history is updated individually via UnitsService.transfer — this is
    * what "approving a transfer" actually does at the data level.
    */
-  async transferStock(warehouseId: string, dto: TransferStockDto) {
-    await this.findById(warehouseId); // 404s if source warehouse doesn't exist
+  async transferStock(user: AuthUser, warehouseId: string, dto: TransferStockDto) {
+    const warehouse = await this.findById(user, warehouseId); // 404s if missing or in another company
+    const companyId = String(warehouse.companyId);
 
     const toOwnerType =
       dto.toType === 'warehouse'
@@ -69,7 +74,8 @@ export class WarehousesService {
 
     const results = await Promise.all(
       dto.unitIds.map((unitId) =>
-        this.unitsService.transfer(unitId, toOwnerType, toOwnerId, dto.note),
+        // units and destination must both belong to the source warehouse's company
+        this.unitsService.transferChecked(companyId, unitId, toOwnerType, toOwnerId, dto.note),
       ),
     );
     return { transferred: results.length, units: results };

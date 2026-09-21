@@ -4,6 +4,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto, UpdateOrderDto } from './dto/order.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
+import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Store & POS')
 @ApiBearerAuth()
@@ -14,32 +15,33 @@ export class OrdersController {
   @Post()
   @Roles(Role.CASHIER, Role.SHOP_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Créer une vente (comptant/carte/mobile money uniquement)' })
-  create(@Body() dto: CreateOrderDto) {
-    return this.ordersService.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateOrderDto) {
+    return this.ordersService.create(user, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Lister les commandes' })
   findAll(
+    @CurrentUser() user: AuthUser,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('companyId') companyId?: string,
     @Query('storeId') storeId?: string,
     @Query('customerId') customerId?: string,
   ) {
-    return this.ordersService.findAll({ page, limit, companyId, storeId, customerId });
+    return this.ordersService.findAll(user, { page, limit, companyId, storeId, customerId });
   }
 
   @Get(':id')
   @ApiOperation({ summary: "Détail d'une commande" })
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findById(id);
+  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.ordersService.findById(user, id);
   }
 
   @Put(':id')
   @Roles(Role.CASHIER, Role.SHOP_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Gérer les retours et remboursements' })
-  update(@Param('id') id: string, @Body() dto: UpdateOrderDto) {
-    return this.ordersService.update(id, dto);
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateOrderDto) {
+    return this.ordersService.update(user, id, dto);
   }
 }

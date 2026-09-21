@@ -9,6 +9,7 @@ import { OtpVerifyDto } from './dto/otp-verify.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
+import { TenancyService } from '../tenancy/tenancy.service';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -16,6 +17,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
+    private readonly tenancy: TenancyService,
   ) {}
 
   @Public()
@@ -75,8 +77,13 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Get('me')
-  @ApiOperation({ summary: "Profil de l'utilisateur authentifié" })
-  me(@CurrentUser() user: AuthUser) {
-    return this.usersService.findById(user.userId);
+  @ApiOperation({
+    summary: "Profil de l'utilisateur authentifié",
+    description: 'Inclut `companyIds` : les entreprises accessibles avec ce compte.',
+  })
+  async me(@CurrentUser() user: AuthUser) {
+    const profile = await this.usersService.findById(user.userId);
+    // Companies this account can access (a super admin's = the ones they created).
+    return { ...profile.toJSON(), companyIds: await this.tenancy.allowedCompanyIds(user) };
   }
 }

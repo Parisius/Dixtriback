@@ -6,25 +6,26 @@ import {
   PurchaseOrderDocument,
   PurchaseOrderStatus,
 } from './schemas/purchase-order.schema';
+import { TenancyService } from '../tenancy/tenancy.service';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class PurchaseOrdersService {
   constructor(
-    @InjectModel(PurchaseOrder.name)
-    private purchaseOrderModel: Model<PurchaseOrderDocument>,
+    @InjectModel(PurchaseOrder.name) private purchaseOrderModel: Model<PurchaseOrderDocument>,
+    private tenancy: TenancyService,
   ) {}
 
-  create(dto: Record<string, any>) {
-    return new this.purchaseOrderModel({
-      ...dto,
-      status: PurchaseOrderStatus.PENDING_APPROVAL,
-    }).save();
+  async create(user: AuthUser, dto: Record<string, any>) {
+    const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    return new this.purchaseOrderModel({ ...dto, companyId, status: PurchaseOrderStatus.PENDING_APPROVAL }).save();
   }
 
-  async findAll(page = 1, limit = 20, companyId?: string, status?: string) {
+  async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string, status?: string) {
     const filter: Record<string, any> = {};
-    if (companyId) filter.companyId = companyId;
     if (status) filter.status = status;
+    // Applied last: nothing the client sends can widen the company scope.
+    Object.assign(filter, await this.tenancy.companyFilter(user, companyId));
     const [data, total] = await Promise.all([
       this.purchaseOrderModel
         .find(filter)
@@ -37,21 +38,22 @@ export class PurchaseOrdersService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
-  async findById(id: string) {
-    const po = await this.purchaseOrderModel.findById(id).exec();
-    if (!po) throw new NotFoundException('Bon de commande introuvable');
-    return po;
+  async findById(user: AuthUser, id: string) {
+    const doc = await this.purchaseOrderModel.findById(id).exec();
+    return this.tenancy.assertOwns(user, doc, 'Bon de commande introuvable');
   }
 
-  async update(id: string, dto: Record<string, any>) {
+  async update(user: AuthUser, id: string, dto: Record<string, any>) {
+    await this.findById(user, id);
     const updated = await this.purchaseOrderModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Bon de commande introuvable');
     return updated;
   }
 
-  async approve(id: string, approvedBy?: string) {
+  async approve(user: AuthUser, id: string, approvedBy?: string) {
+    await this.findById(user, id);
     const updated = await this.purchaseOrderModel
       .findByIdAndUpdate(
         id,

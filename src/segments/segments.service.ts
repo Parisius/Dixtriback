@@ -3,20 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Segment, SegmentDocument } from './schemas/segment.schema';
 import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
+import { TenancyService } from '../tenancy/tenancy.service';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class SegmentsService {
   constructor(
     @InjectModel(Segment.name) private segmentModel: Model<SegmentDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    private tenancy: TenancyService,
   ) {}
 
-  create(dto: Record<string, any>) {
-    return new this.segmentModel(dto).save();
+  async create(user: AuthUser, dto: Record<string, any>) {
+    const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    return new this.segmentModel({ ...dto, companyId }).save();
   }
 
-  async findAll(page = 1, limit = 20, companyId?: string) {
-    const filter = companyId ? { companyId } : {};
+  async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string) {
+    const filter = await this.tenancy.companyFilter(user, companyId);
     const [data, total] = await Promise.all([
       this.segmentModel
         .find(filter)
@@ -29,23 +33,23 @@ export class SegmentsService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
-  async findById(id: string) {
+  async findById(user: AuthUser, id: string) {
     const segment = await this.segmentModel.findById(id).exec();
-    if (!segment) throw new NotFoundException('Segment introuvable');
-    return segment;
+    return this.tenancy.assertOwns(user, segment, 'Segment introuvable');
   }
 
-  async update(id: string, dto: Record<string, any>) {
+  async update(user: AuthUser, id: string, dto: Record<string, any>) {
+    await this.findById(user, id);
     const updated = await this.segmentModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Segment introuvable');
     return updated;
   }
 
-  async members(id: string, page = 1, limit = 20) {
-    await this.findById(id);
-    const filter = { segmentIds: id };
+  async members(user: AuthUser, id: string, page = 1, limit = 20) {
+    const segment = await this.findById(user, id);
+    const filter = { segmentIds: id, companyId: segment.companyId };
     const [data, total] = await Promise.all([
       this.customerModel
         .find(filter)
@@ -59,8 +63,8 @@ export class SegmentsService {
 
   /** Rebuilds segment membership from its own rules: minSpend, minOrders,
    * tag are matched against Customer.totalSpend / orderCount / tags. */
-  async recompute(id: string) {
-    const segment = await this.findById(id);
+  async recompute(user: AuthUser, id: string) {
+    const segment = await this.findById(user, id);
     const { minSpend, minOrders, tag } = segment.rules || {};
 
     const matchFilter: Record<string, any> = { companyId: segment.companyId };

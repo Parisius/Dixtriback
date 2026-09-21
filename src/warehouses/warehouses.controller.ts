@@ -4,6 +4,7 @@ import { WarehousesService } from './warehouses.service';
 import { CreateWarehouseDto, UpdateWarehouseDto, TransferStockDto } from './dto/warehouse.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
+import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Warehouse')
 @ApiBearerAuth()
@@ -14,32 +15,33 @@ export class WarehousesController {
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Créer un entrepôt (national/import ou régional)' })
-  create(@Body() dto: CreateWarehouseDto) {
-    return this.warehousesService.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateWarehouseDto) {
+    return this.warehousesService.create(user, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Lister les entrepôts' })
   findAll(
+    @CurrentUser() user: AuthUser,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('companyId') companyId?: string,
     @Query('tier') tier?: string,
   ) {
-    return this.warehousesService.findAll(page, limit, companyId, tier);
+    return this.warehousesService.findAll(user, page, limit, companyId, tier);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un entrepôt par id' })
-  findOne(@Param('id') id: string) {
-    return this.warehousesService.findById(id);
+  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.warehousesService.findById(user, id);
   }
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
   @ApiOperation({ summary: 'Mettre à jour un entrepôt' })
-  update(@Param('id') id: string, @Body() dto: UpdateWarehouseDto) {
-    return this.warehousesService.update(id, dto);
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateWarehouseDto) {
+    return this.warehousesService.update(user, id, dto);
   }
 
   @Post(':id/transfers')
@@ -49,7 +51,7 @@ export class WarehousesController {
     description:
       'Country → Regional, Regional → Field Agent, Regional → Store. Déplace des unités sérialisées précises.',
   })
-  transfer(@Param('id') id: string, @Body() dto: TransferStockDto) {
-    return this.warehousesService.transferStock(id, dto);
+  transfer(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TransferStockDto) {
+    return this.warehousesService.transferStock(user, id, dto);
   }
 }

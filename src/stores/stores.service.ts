@@ -2,17 +2,25 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Store, StoreDocument } from './schemas/store.schema';
+import { TenancyService } from '../tenancy/tenancy.service';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class StoresService {
-  constructor(@InjectModel(Store.name) private storeModel: Model<StoreDocument>) {}
+  constructor(
+    @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
+    private tenancy: TenancyService,
+  ) {}
 
-  create(dto: Record<string, any>) {
-    return new this.storeModel(dto).save();
+  async create(user: AuthUser, dto: Record<string, any>) {
+    const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    return new this.storeModel({ ...dto, companyId }).save();
   }
 
-  async findAll(page = 1, limit = 20, companyId?: string) {
-    const filter = companyId ? { companyId } : {};
+  async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string) {
+    const filter: Record<string, any> = {};
+    // Applied last: nothing the client sends can widen the company scope.
+    Object.assign(filter, await this.tenancy.companyFilter(user, companyId));
     const [data, total] = await Promise.all([
       this.storeModel
         .find(filter)
@@ -25,22 +33,22 @@ export class StoresService {
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
-  async findById(id: string) {
-    const store = await this.storeModel.findById(id).exec();
-    if (!store) throw new NotFoundException('Boutique introuvable');
-    return store;
+  async findById(user: AuthUser, id: string) {
+    const doc = await this.storeModel.findById(id).exec();
+    return this.tenancy.assertOwns(user, doc, 'Boutique introuvable');
   }
 
-  async update(id: string, dto: Record<string, any>) {
+  async update(user: AuthUser, id: string, dto: Record<string, any>) {
+    await this.findById(user, id);
     const updated = await this.storeModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Boutique introuvable');
     return updated;
   }
 
-  async remove(id: string) {
-    const res = await this.storeModel.findByIdAndUpdate(id, { isActive: false }).exec();
-    if (!res) throw new NotFoundException('Boutique introuvable');
+  async remove(user: AuthUser, id: string) {
+    await this.findById(user, id);
+    await this.storeModel.findByIdAndUpdate(id, { isActive: false }).exec();
   }
 }

@@ -1,11 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsEnum, IsOptional, IsString } from 'class-validator';
 import { PaymentMethod } from '../schemas/order.schema';
+import { Type } from 'class-transformer';
 
 export class CreateOrderDto {
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description:
+      "Requis pour un super admin (l'une de ses entreprises). Pour les autres rôles, l'entreprise est celle du compte connecté.",
+  })
+  @IsOptional()
   @IsString()
-  companyId: string;
+  companyId?: string;
 
   @ApiProperty()
   @IsString()
@@ -21,6 +26,8 @@ export class CreateOrderDto {
     description: 'Lines: { productId, quantity, unitPrice }',
   })
   @IsArray()
+  // explicit type: without it, implicit conversion turns each object item into []
+  @Type(() => Object)
   lines: Array<{ productId: string; quantity: number; unitPrice: number }>;
 
   @ApiProperty({

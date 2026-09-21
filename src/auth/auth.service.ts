@@ -46,8 +46,13 @@ export class AuthService {
       throw new ConflictException('Ce téléphone est déjà utilisé.');
     }
 
-    // role is never taken from the caller — always forced to customer here.
-    const { role: _ignored, ...rest } = dto;
+    // Public endpoint: role and every company/permission-related field are
+    // dropped, so a self-registered account can never belong to a company.
+    const PRIVILEGED = [
+      'role', 'companyId', 'storeId', 'regionId', 'enterpriseId', 'isActive',
+      'passwordHash', 'emailVerified', 'phoneVerified', '_id', 'createdAt', 'updatedAt',
+    ];
+    const rest = Object.fromEntries(Object.entries(dto).filter(([k]) => !PRIVILEGED.includes(k)));
     const user = await this.usersService.create({ ...rest, role: Role.CUSTOMER });
     return this.issueTokens(user.id, user.role, user.companyId?.toString() ?? null);
   }

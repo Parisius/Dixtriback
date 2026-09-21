@@ -5,6 +5,7 @@ import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
+import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Catalog')
 @Controller('products')
@@ -15,8 +16,8 @@ export class ProductsController {
   @ApiBearerAuth()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Créer un produit' })
-  create(@Body() dto: CreateProductDto) {
-    return this.productsService.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateProductDto) {
+    return this.productsService.create(user, dto);
   }
 
   @Public()
@@ -42,15 +43,15 @@ export class ProductsController {
   @ApiBearerAuth()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Mettre à jour un produit' })
-  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
-    return this.productsService.update(id, dto);
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateProductDto) {
+    return this.productsService.update(user, id, dto);
   }
 
   @Delete(':id')
   @ApiBearerAuth()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Désactiver un produit' })
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.productsService.remove(user, id);
   }
 }

@@ -157,3 +157,17 @@ règles et met à jour l'appartenance ainsi que `customerCount`.
 - Journalisation/observabilité (Winston, Sentry, etc.) au-delà du filtre d'exceptions actuel
 - Le module Crédit (Agent Terrain), le Field Agent App backend, et le module Chat
   restent hors du périmètre Phase 1 — voir `openapi.json` pour leur forme prévue
+
+## Isolation multi-entreprises
+
+- Un utilisateur est rattaché à une entreprise par `User.companyId` (copié dans le JWT).
+- Un **super admin** n'a pas d'entreprise propre : il est lié à **toutes les entreprises qu'il crée**
+  (`Company.createdBy`). `GET /v1/companies` et `GET /v1/auth/me` (`companyIds`) les listent.
+  Un super admin ne voit jamais les entreprises d'un autre super admin.
+- Tous les autres rôles n'accèdent qu'aux données de **leur** entreprise. Le `?companyId=` d'une
+  requête ne peut que restreindre, jamais élargir. Accès à une autre entreprise : `403` (filtre) ou
+  `404` (ressource par id, pour ne pas révéler son existence). Logique centralisée dans
+  `src/tenancy/tenancy.service.ts`.
+- Les comptes sans entreprise (clients) n'ont accès à aucune donnée d'entreprise.
+- Migration d'une base créée avant ce changement (entreprises sans propriétaire) :
+  `node dist/database/backfill-company-owner.js [email-du-super-admin]`

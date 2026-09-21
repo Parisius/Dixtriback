@@ -21,10 +21,11 @@ export class ProductsService {
   }
 
   /**
-   * Storefront customers browse every company's ACTIVE products (they have no
-   * company of their own). Everyone else is confined to their own company.
+   * The storefront (anonymous visitors and customers, who have no company)
+   * sees every company's ACTIVE products. Logged-in staff are confined to
+   * their own company.
    */
-  async findAll(user: AuthUser, query: {
+  async findAll(user: AuthUser | null, query: {
     page?: number;
     limit?: number;
     companyId?: string;
@@ -34,7 +35,7 @@ export class ProductsService {
     const limit = Number(query.limit) || 20;
     const filter: Record<string, any> = {};
     if (query.q) filter.name = { $regex: escapeRegex(String(query.q)), $options: 'i' };
-    if (user.role === Role.CUSTOMER) {
+    if (!user || user.role === Role.CUSTOMER) {
       filter.isActive = { $ne: false };
       // A customer may narrow to one company's shop, but never needs a token scope.
       if (typeof query.companyId === 'string' && query.companyId) filter.companyId = query.companyId;
@@ -53,9 +54,9 @@ export class ProductsService {
     return { data, total, page, limit };
   }
 
-  async findById(user: AuthUser, id: string) {
+  async findById(user: AuthUser | null, id: string) {
     const product = await this.productModel.findById(id).exec();
-    if (user.role === Role.CUSTOMER) {
+    if (!user || user.role === Role.CUSTOMER) {
       if (!product || product.isActive === false) throw new NotFoundException('Produit introuvable');
       return product;
     }

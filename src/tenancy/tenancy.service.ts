@@ -15,8 +15,8 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
  *
  * - A regular user (admin, cashier, ...) may only touch the company in their
  *   signed access token (`companyId`). Anything they send is checked against it.
- * - A super admin may touch exactly the companies they created
- *   (`Company.createdBy`). Super admins never see each other's companies.
+ * - A super admin may touch every company (`Company.createdBy` records who
+ *   created it, but does not limit access).
  * - A user with no company (customers, ...) has no access to company data.
  */
 @Injectable()
@@ -26,11 +26,7 @@ export class TenancyService {
   /** Ids (as strings) of every company this user is allowed to access. */
   async allowedCompanyIds(user: AuthUser): Promise<string[]> {
     if (user.role === Role.SUPER_ADMIN) {
-      const companies = await this.companyModel
-        .find({ createdBy: new Types.ObjectId(user.userId) })
-        .select('_id')
-        .lean()
-        .exec();
+      const companies = await this.companyModel.find().select('_id').lean().exec();
       return companies.map((c) => String(c._id));
     }
     return user.companyId ? [String(user.companyId)] : [];

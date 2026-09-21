@@ -23,7 +23,7 @@ export class CompaniesController {
   @ApiOperation({
     summary: 'Lister mes entreprises',
     description:
-      "Super admin : les entreprises qu'il a créées. Autres rôles : leur propre entreprise.",
+      "Super admin : toutes les entreprises. Autres rôles : leur propre entreprise.",
   })
   findAll(
     @CurrentUser() user: AuthUser,

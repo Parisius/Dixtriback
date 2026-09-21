@@ -13,8 +13,8 @@ export class CompaniesService {
     private tenancy: TenancyService,
   ) {}
 
-  /** The creating super admin is linked to the company via `createdBy`
-   * (never taken from the request body). */
+  /** The creating super admin is recorded in `createdBy` (never taken from
+   * the request body). */
   create(user: AuthUser, dto: Record<string, any>) {
     const { createdBy: _ignored, _id: _id, ...rest } = dto;
     return new this.companyModel({
@@ -23,8 +23,7 @@ export class CompaniesService {
     }).save();
   }
 
-  /** Only the caller's own companies: a super admin's created companies, or a
-   * regular user's single company. */
+  /** A super admin lists every company; anyone else only their own. */
   async findAll(user: AuthUser, page = 1, limit = 20) {
     const ids = await this.tenancy.allowedCompanyIds(user);
     if (user.role !== Role.SUPER_ADMIN && ids.length === 0) {

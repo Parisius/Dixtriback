@@ -161,13 +161,17 @@ règles et met à jour l'appartenance ainsi que `customerCount`.
 ## Isolation multi-entreprises
 
 - Un utilisateur est rattaché à une entreprise par `User.companyId` (copié dans le JWT).
-- Un **super admin** n'a pas d'entreprise propre : il est lié à **toutes les entreprises qu'il crée**
-  (`Company.createdBy`). `GET /v1/companies` et `GET /v1/auth/me` (`companyIds`) les listent.
-  Un super admin ne voit jamais les entreprises d'un autre super admin.
+- Le **super admin** n'a pas d'entreprise propre : il voit et gère **toutes** les entreprises.
+  `Company.createdBy` garde la trace du super admin qui a créé chaque entreprise.
+  `GET /v1/companies` et `GET /v1/auth/me` (`companyIds`) les listent.
 - Tous les autres rôles n'accèdent qu'aux données de **leur** entreprise. Le `?companyId=` d'une
   requête ne peut que restreindre, jamais élargir. Accès à une autre entreprise : `403` (filtre) ou
   `404` (ressource par id, pour ne pas révéler son existence). Logique centralisée dans
   `src/tenancy/tenancy.service.ts`.
 - Les comptes sans entreprise (clients) n'ont accès à aucune donnée d'entreprise.
-- Migration d'une base créée avant ce changement (entreprises sans propriétaire) :
+- **Catalogue (vitrine e-commerce)** : `GET /v1/products` et `/v1/products/:id` fonctionnent sans
+  connexion (`@OptionalAuth`) : visiteurs et clients voient les produits **actifs** de toutes les
+  entreprises. Avec un token, le personnel ne voit que les produits de sa propre entreprise
+  (super admin : toutes). Un token invalide est rejeté (401).
+- Migration d'une base créée avant `Company.createdBy` :
   `node dist/database/backfill-company-owner.js [email-du-super-admin]`

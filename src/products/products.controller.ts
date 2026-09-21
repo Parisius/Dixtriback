@@ -2,7 +2,6 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
@@ -20,23 +19,29 @@ export class ProductsController {
     return this.productsService.create(user, dto);
   }
 
-  @Public()
   @Get()
-  @ApiOperation({ summary: 'Lister / rechercher les produits' })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Lister / rechercher les produits',
+    description:
+      "Client (site e-commerce) : les produits actifs de toutes les entreprises. " +
+      "Personnel : uniquement les produits de sa propre entreprise (super admin : celles qu'il a créées).",
+  })
   findAll(
+    @CurrentUser() user: AuthUser,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('companyId') companyId?: string,
     @Query('q') q?: string,
   ) {
-    return this.productsService.findAll({ page, limit, companyId, q });
+    return this.productsService.findAll(user, { page, limit, companyId, q });
   }
 
-  @Public()
   @Get(':id')
+  @ApiBearerAuth()
   @ApiOperation({ summary: "Consulter le détail d'un produit" })
-  findOne(@Param('id') id: string) {
-    return this.productsService.findById(id);
+  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.productsService.findById(user, id);
   }
 
   @Put(':id')

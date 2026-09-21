@@ -3,6 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
+import { Role } from '../common/constants/roles.enum';
+
+const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
@@ -17,7 +20,11 @@ export class ProductsService {
     return new this.productModel({ ...dto, companyId }).save();
   }
 
-  async findAll(query: {
+  /**
+   * Storefront customers browse every company's ACTIVE products (they have no
+   * company of their own). Everyone else is confined to their own company.
+   */
+  async findAll(user: AuthUser, query: {
     page?: number;
     limit?: number;
     companyId?: string;
@@ -26,9 +33,14 @@ export class ProductsService {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
     const filter: Record<string, any> = {};
-    if (query.companyId) filter.companyId = query.companyId;
-    if (query.q) filter.name = { $regex: query.q, $options: 'i' };
-
+    if (query.q) filter.name = { $regex: escapeRegex(String(query.q)), $options: 'i' };
+    if (user.role === Role.CUSTOMER) {
+      filter.isActive = { $ne: false };
+      // A customer may narrow to one company's shop, but never needs a token scope.
+      if (typeof query.companyId === 'string' && query.companyId) filter.companyId = query.companyId;
+    } else {
+      Object.assign(filter, await this.tenancy.companyFilter(user, query.companyId));
+    }
     const [data, total] = await Promise.all([
       this.productModel
         .find(filter)
@@ -41,10 +53,13 @@ export class ProductsService {
     return { data, total, page, limit };
   }
 
-  async findById(id: string) {
+  async findById(user: AuthUser, id: string) {
     const product = await this.productModel.findById(id).exec();
-    if (!product) throw new NotFoundException('Produit introuvable');
-    return product;
+    if (user.role === Role.CUSTOMER) {
+      if (!product || product.isActive === false) throw new NotFoundException('Produit introuvable');
+      return product;
+    }
+    return this.tenancy.assertOwns(user, product, 'Produit introuvable');
   }
 
   async update(user: AuthUser, id: string, dto: Record<string, any>) {

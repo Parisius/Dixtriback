@@ -24,7 +24,7 @@ export class CreateStoreDto {
   @IsObject()
   address?: Record<string, any>;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: "Id d'une région de la même entreprise (POST /v1/regions)" })
   @IsOptional()
   @IsString()
   regionId?: string;

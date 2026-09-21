@@ -4,16 +4,19 @@ import { Model } from 'mongoose';
 import { Store, StoreDocument } from './schemas/store.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { RegionsService } from '../regions/regions.service';
 
 @Injectable()
 export class StoresService {
   constructor(
     @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
     private tenancy: TenancyService,
+    private regions: RegionsService,
   ) {}
 
   async create(user: AuthUser, dto: Record<string, any>) {
     const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    await this.regions.assertUsable(companyId, dto.regionId);
     return new this.storeModel({ ...dto, companyId }).save();
   }
 
@@ -39,7 +42,8 @@ export class StoresService {
   }
 
   async update(user: AuthUser, id: string, dto: Record<string, any>) {
-    await this.findById(user, id);
+    const current = await this.findById(user, id);
+    await this.regions.assertUsable(current.companyId, dto.regionId);
     const updated = await this.storeModel
       .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();

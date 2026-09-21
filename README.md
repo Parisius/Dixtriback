@@ -175,3 +175,28 @@ règles et met à jour l'appartenance ainsi que `customerCount`.
   (super admin : toutes). Un token invalide est rejeté (401).
 - Migration d'une base créée avant `Company.createdBy` :
   `node dist/database/backfill-company-owner.js [email-du-super-admin]`
+
+## Régions
+
+Une région appartient à **une entreprise** (`POST /v1/regions`, admin ou super admin ; `GET`, `PUT`,
+`DELETE` = désactivation). Le `regionId` d'une boutique, d'un entrepôt ou d'un utilisateur doit
+être l'id d'une région **active de la même entreprise** (sinon `400`). Nom unique par entreprise (`409`).
+
+Migration d'une base où `regionId` était du texte libre (ex. `"littoral"`) :
+`node dist/database/backfill-regions.js` (crée les régions manquantes et remplace le texte par leur id).
+
+## Journal d'activité (`GET /v1/logs`)
+
+- Enregistré automatiquement pour **toute écriture** (POST/PUT/PATCH/DELETE) et tout événement
+  d'authentification (connexion, inscription, OTP, refresh, logout), **réussis ou non**.
+  Les lectures (GET) ne sont pas journalisées, ni les requêtes refusées avant le contrôleur
+  (token absent/invalide, rôle non autorisé).
+- Chaque entrée : date, auteur (id, nom, email, rôle), entreprise concernée, `action`
+  (ex. `orders.create`, `shipments.receive`, `auth.login`), ressource et id, méthode, chemin,
+  code HTTP, succès, IP, user-agent, corps de la requête (mots de passe/secrets **masqués**).
+- **Admin d'entreprise** : uniquement les entrées de son entreprise. **Super admin** : toutes les
+  entreprises (`?companyId=<id>` pour une seule, `?companyId=none` pour les événements hors
+  entreprise, ex. connexions échouées).
+- Filtres : `companyId`, `actorId`, `resource`, `action`, `method`, `success`, `from`, `to`, `page`, `limit` (max 100).
+- Lecture seule (aucune route d'écriture ni de suppression). Conservation : `AUDIT_RETENTION_DAYS`
+  (365 par défaut). `TRUST_PROXY` règle l'IP client derrière un proxy.

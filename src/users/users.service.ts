@@ -6,6 +6,7 @@ import { User, UserDocument } from './schemas/user.schema';
 import { Role } from '../common/constants/roles.enum';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { RegionsService } from '../regions/regions.service';
 
 /** Fields nobody may set through the users API. */
 const FORBIDDEN_FIELDS = ['_id', 'passwordHash', 'createdAt', 'updatedAt'];
@@ -17,6 +18,7 @@ export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private tenancy: TenancyService,
+    private regions: RegionsService,
   ) {}
 
   /** dto is typed loosely so any extra properties beyond the DTO's own
@@ -91,6 +93,7 @@ export class UsersService {
       return this.create({ ...data, companyId: null });
     }
     const companyId = await this.tenancy.companyForCreate(user, data.companyId);
+    await this.regions.assertUsable(companyId, data.regionId);
     return this.create({ ...data, companyId });
   }
 
@@ -121,6 +124,7 @@ export class UsersService {
     if (target.role === Role.SUPER_ADMIN && !isSelf) {
       throw new ForbiddenException('Un super admin ne peut être modifié que par lui-même.');
     }
+    await this.regions.assertUsable(target.companyId, dto.regionId);
     // companyId is immutable here; password is hashed; role changes are guarded.
     const { password, companyId: _c, role, ...rest } = strip(dto);
     const changes: Record<string, any> = { ...rest };

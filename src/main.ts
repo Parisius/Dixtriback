@@ -21,6 +21,7 @@ const SWAGGER_CUSTOM_CSS = `
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+  (app as any).set('trust proxy', config.get<string>('trustProxy'));
 
   // Browser access: any localhost / 127.0.0.1 port, plus the configured origins.
   const allowedOrigins = new Set(config.get<string[]>('corsOrigins')!);
@@ -73,6 +74,8 @@ async function bootstrap() {
     .addTag('Warehouse', 'Entrepôts National/Import et Régionaux, transferts de stock')
     .addTag('Inventory', 'Unités individuellement sérialisées & traçabilité')
     .addTag('Catalog', 'Produits')
+    .addTag('Region', 'Régions de chaque entreprise (référencées par regionId)')
+    .addTag('Logs', "Journal d'activité par entreprise (admin) et global (super admin)")
     .addTag('Store', 'Boutiques physiques/virtuelles')
     .addTag('Store & POS', 'Ventes, retours, encaissement')
     .addTag('CRM', 'Fiches client & segmentation')

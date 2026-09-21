@@ -6,6 +6,7 @@ import { UserSchema } from '../users/schemas/user.schema';
 import { CompanySchema } from '../companies/schemas/company.schema';
 import { WarehouseSchema, WarehouseTier } from '../warehouses/schemas/warehouse.schema';
 import { StoreSchema, StoreType } from '../stores/schemas/store.schema';
+import { RegionSchema } from '../regions/schemas/region.schema';
 import { Role } from '../common/constants/roles.enum';
 
 async function seed() {
@@ -17,6 +18,7 @@ async function seed() {
   const CompanyModel = mongoose.model('Company', CompanySchema);
   const WarehouseModel = mongoose.model('Warehouse', WarehouseSchema);
   const StoreModel = mongoose.model('Store', StoreSchema);
+  const RegionModel = mongoose.model('Region', RegionSchema);
 
   const existing = await UserModel.findOne({ email: 'admin@example.com' });
   if (existing) {
@@ -47,6 +49,14 @@ async function seed() {
   // The super admin is linked to the companies they create (Company.createdBy).
   await CompanyModel.updateOne({ _id: company._id }, { createdBy: superAdmin._id });
 
+  const region = await RegionModel.create({
+    companyId: company.id,
+    name: 'Littoral',
+    code: 'LIT',
+    country: 'BJ',
+  });
+  console.log('Région créée:', region.id);
+
   const countryWarehouse = await WarehouseModel.create({
     companyId: company.id,
     name: 'Entrepôt National — Cotonou',
@@ -58,7 +68,7 @@ async function seed() {
     companyId: company.id,
     name: 'Entrepôt Régional — Littoral',
     tier: WarehouseTier.REGIONAL,
-    regionId: 'littoral',
+    regionId: region.id,
   });
   console.log('Entrepôt Régional créé:', regionalWarehouse.id);
 
@@ -66,7 +76,7 @@ async function seed() {
     companyId: company.id,
     name: 'Boutique Centre-Ville',
     type: StoreType.PHYSICAL,
-    regionId: 'littoral',
+    regionId: region.id,
   });
   console.log('Boutique créée:', store.id);
 

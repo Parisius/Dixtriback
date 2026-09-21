@@ -26,6 +26,8 @@ const buildConfig = () => ({
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   },
+  // Which proxies to trust for the client IP in audit logs (Express `trust proxy` syntax).
+  trustProxy: process.env.TRUST_PROXY || 'loopback,linklocal,uniquelocal',
   // Extra allowed browser origins (comma-separated). localhost on any port is always allowed.
   corsOrigins: (process.env.CORS_ORIGINS || DEFAULT_CORS_ORIGINS)
     .split(',')

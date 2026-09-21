@@ -7,6 +7,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
 import { TenancyModule } from './tenancy/tenancy.module';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CompaniesModule } from './companies/companies.module';
@@ -16,6 +17,7 @@ import { ShipmentsModule } from './shipments/shipments.module';
 import { WarehousesModule } from './warehouses/warehouses.module';
 import { UnitsModule } from './units/units.module';
 import { ProductsModule } from './products/products.module';
+import { RegionsModule } from './regions/regions.module';
 import { StoresModule } from './stores/stores.module';
 import { OrdersModule } from './orders/orders.module';
 import { CustomersModule } from './customers/customers.module';
@@ -27,6 +29,7 @@ import { ReportsModule } from './reports/reports.module';
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     DatabaseModule,
     TenancyModule,
+    AuditModule,
 
     // Phase 1 — Admin Dashboard, in build order (Section: Feuille de Route)
     AuthModule,
@@ -38,6 +41,7 @@ import { ReportsModule } from './reports/reports.module';
     WarehousesModule,
     UnitsModule,
     ProductsModule,
+    RegionsModule,
     StoresModule,
     OrdersModule,
     CustomersModule,

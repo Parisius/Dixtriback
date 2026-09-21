@@ -43,7 +43,7 @@ export class CreateUserDto {
   @IsString()
   storeId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: "Id d'une région de la même entreprise (POST /v1/regions)" })
   @IsOptional()
   @IsString()
   regionId?: string;

@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CustomRole, CustomRoleDocument } from './schemas/custom-role.schema';
@@ -17,30 +23,48 @@ export class CustomRolesService {
 
   async create(user: AuthUser, dto: Record<string, any>) {
     const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    // isSystem is never client-settable: only SystemRolesSeeder sets it.
+    const { isSystem: _s, ...rest } = dto;
     try {
-      return await new this.roleModel({ ...dto, companyId }).save();
+      return await new this.roleModel({ ...rest, companyId, isSystem: false }).save();
     } catch (err: any) {
       if (err?.code === 11000) throw new ConflictException(DUPLICATE);
       throw err;
     }
   }
 
+  /** Generic (system) roles are always included, alongside the caller's own
+   * company's custom roles — that's the whole point of this list. */
   async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string) {
-    const filter = await this.tenancy.companyFilter(user, companyId);
+    const companyFilter = await this.tenancy.companyFilter(user, companyId); // throws if not allowed
+    const filter = { $or: [{ isSystem: true }, companyFilter] };
     const [data, total] = await Promise.all([
-      this.roleModel.find(filter).skip((page - 1) * limit).limit(limit).sort('name').exec(),
+      this.roleModel
+        .find(filter)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .sort({ isSystem: -1, name: 1 })
+        .exec(),
       this.roleModel.countDocuments(filter).exec(),
     ]);
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
+  /** Generic roles carry no company data, so they're readable by anyone
+   * (same as the permission catalog). A company's own role still requires
+   * ownership. */
   async findById(user: AuthUser, id: string) {
     const role = await this.roleModel.findById(id).exec();
+    if (!role) throw new NotFoundException('Rôle introuvable');
+    if (role.isSystem) return role;
     return this.tenancy.assertOwns(user, role, 'Rôle introuvable');
   }
 
   async update(user: AuthUser, id: string, dto: Record<string, any>) {
-    await this.findById(user, id);
+    const role = await this.findById(user, id);
+    if (role.isSystem) {
+      throw new ForbiddenException('Les rôles génériques ne peuvent pas être modifiés.');
+    }
     try {
       const updated = await this.roleModel
         .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
@@ -54,7 +78,10 @@ export class CustomRolesService {
   }
 
   async remove(user: AuthUser, id: string) {
-    await this.findById(user, id);
+    const role = await this.findById(user, id);
+    if (role.isSystem) {
+      throw new ForbiddenException('Les rôles génériques ne peuvent pas être désactivés.');
+    }
     await this.roleModel.findByIdAndUpdate(id, { isActive: false }).exec();
   }
 
@@ -85,10 +112,12 @@ export class CustomRolesService {
         _id: customRoleId,
         companyId: String(companyId),
         isActive: { $ne: false },
+        isSystem: { $ne: true },
       }))
     ) {
       throw new BadRequestException(
-        'customRoleId invalide : le rôle doit exister, être actif, et appartenir à l\'entreprise (POST /v1/roles).',
+        'customRoleId invalide : le rôle doit exister, être actif, appartenir à l\'entreprise, ' +
+          'et ne pas être un rôle générique (POST /v1/roles).',
       );
     }
     return customRoleId;
@@ -102,6 +131,7 @@ export class CustomRolesService {
         _id: (user as any).customRoleId,
         companyId: String(user.companyId),
         isActive: { $ne: false },
+        isSystem: { $ne: true },
       })
       .lean()
       .exec();

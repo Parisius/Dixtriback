@@ -34,7 +34,13 @@ export class CustomRolesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lister les rôles personnalisés' })
+  @ApiOperation({
+    summary: 'Lister les rôles',
+    description:
+      "Retourne toujours les rôles génériques (isSystem: true — admin, cashier, etc., synchronisés " +
+      "automatiquement depuis le code, en lecture seule) ET les rôles personnalisés de l'entreprise " +
+      "(du super admin : toutes les siennes). `companyId` ne filtre que les rôles personnalisés.",
+  })
   findAll(
     @CurrentUser() user: AuthUser,
     @Query('page') page?: number,
@@ -45,7 +51,7 @@ export class CustomRolesController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: "Détail d'un rôle personnalisé" })
+  @ApiOperation({ summary: "Détail d'un rôle (générique ou personnalisé)" })
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.rolesService.findById(user, id);
   }

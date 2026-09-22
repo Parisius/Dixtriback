@@ -4,14 +4,19 @@ import { Document } from 'mongoose';
 export type CustomRoleDocument = CustomRole & Document;
 
 /**
- * A role a company defines for itself: a name plus a set of permissions
- * (see src/common/constants/permissions.ts). A user is placed on one via
- * User.role = 'custom' + User.customRoleId.
+ * A role — either:
+ *  - generic (isSystem: true, companyId: null): one of the fixed Role enum
+ *    values (admin, cashier, ...). Synced automatically at startup from the
+ *    @Roles()/@RequirePermission() pairs on every route — see
+ *    SystemRolesSeeder — never created/edited through the API.
+ *  - a company's own (isSystem: false): a name plus a set of permissions
+ *    (see src/common/constants/permissions.ts). A user is placed on one via
+ *    User.role = 'custom' + User.customRoleId.
  */
-@Schema({ timestamps: true, strict: false, collection: 'custom_roles' })
+@Schema({ timestamps: true, strict: false, collection: 'roles' })
 export class CustomRole {
-  @Prop({ type: String, required: true, index: true })
-  companyId: string;
+  @Prop({ type: String, default: null, index: true })
+  companyId: string | null;
 
   @Prop({ required: true, trim: true })
   name: string;
@@ -21,6 +26,9 @@ export class CustomRole {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ default: false })
+  isSystem: boolean;
 }
 
 export const CustomRoleSchema = SchemaFactory.createForClass(CustomRole);

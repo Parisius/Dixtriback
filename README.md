@@ -211,7 +211,15 @@ Migration d'une base où `regionId` était du texte libre (ex. `"littoral"`) :
 - Lecture seule (aucune route d'écriture ni de suppression). Conservation : `AUDIT_RETENTION_DAYS`
   (365 par défaut). `TRUST_PROXY` règle l'IP client derrière un proxy.
 
-## Rôles personnalisés (`/v1/roles`)
+## Rôles (`/v1/roles`)
+
+`GET /v1/roles` retourne TOUJOURS deux ensembles :
+- les **rôles génériques** (`isSystem: true`, `companyId: null`) — un par valeur de l'enum `Role`
+  (`admin`, `cashier`, etc.). Ils sont synchronisés automatiquement au démarrage à partir des
+  décorateurs `@Roles(...)`/`@RequirePermission(...)` posés sur chaque route (voir
+  `SystemRolesSeeder`) : c'est une vue en base de ce que les rôles fixes peuvent réellement faire,
+  jamais modifiable via l'API (`PUT`/`DELETE` → `403`).
+- les **rôles personnalisés** de l'entreprise (`isSystem: false`) que ses admins ont créés.
 
 En plus des rôles fixes, chaque entreprise peut créer ses propres rôles avec des permissions
 précises : `POST /v1/roles` (nom + `permissions: string[]`), `GET /v1/roles/permissions` pour le

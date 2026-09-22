@@ -2,8 +2,9 @@ name: dixtrie
 # PRODUCTION (VPS):
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 # Two separate containers: backend + mongo.
-#  - Mongo has authentication on and is NOT published to the host; only the
-#    backend can reach it, over the private compose network.
+#  - Mongo has authentication on and is bound to 127.0.0.1 only (loopback) —
+#    reachable from the VPS itself (e.g. an SSH tunnel), never from the
+#    internet. The backend reaches it over the private compose network.
 #  - The backend is published on host port 3100; Nginx Proxy Manager (already on
 #    the VPS) forwards api-test.dixtri.com -> <vps-ip>:3100 and handles HTTPS.
 services:
@@ -16,6 +17,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env.prod}
     volumes:
       - mongo_data:/data/db
+    ports:
+      - "127.0.0.1:27017:27017"
     networks:
       - internal
     healthcheck:

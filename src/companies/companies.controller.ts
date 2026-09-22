@@ -5,6 +5,7 @@ import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Company')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class CompaniesController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('companies.create')
   @ApiOperation({ summary: "Créer et configurer l'entreprise" })
   create(@Body() dto: CreateCompanyDto, @CurrentUser() user: AuthUser) {
     return this.companiesService.create(user, dto);
@@ -41,6 +43,7 @@ export class CompaniesController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('companies.update')
   @ApiOperation({ summary: 'Mettre à jour une entreprise' })
   update(
     @Param('id') id: string,
@@ -52,6 +55,7 @@ export class CompaniesController {
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('companies.delete')
   @ApiOperation({ summary: 'Désactiver une entreprise' })
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.companiesService.remove(user, id);

@@ -5,6 +5,7 @@ import { CreateSegmentDto, UpdateSegmentDto } from './dto/segment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('CRM')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class SegmentsController {
 
   @Post()
   @Roles(Role.MARKETING_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('segments.create')
   @ApiOperation({ summary: 'Créer un segment basé sur des règles' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateSegmentDto) {
     return this.segmentsService.create(user, dto);
@@ -38,6 +40,7 @@ export class SegmentsController {
 
   @Put(':id')
   @Roles(Role.MARKETING_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('segments.update')
   @ApiOperation({ summary: 'Mettre à jour un segment' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateSegmentDto) {
     return this.segmentsService.update(user, id, dto);
@@ -56,6 +59,7 @@ export class SegmentsController {
 
   @Post(':id/recompute')
   @Roles(Role.MARKETING_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('segments.recompute')
   @ApiOperation({ summary: "Recalculer l'appartenance au segment selon ses règles" })
   recompute(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.segmentsService.recompute(user, id);

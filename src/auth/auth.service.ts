@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
+import { UserDocument } from '../users/schemas/user.schema';
 import { MailService } from '../mail/mail.service';
 import { Role } from '../common/constants/roles.enum';
 import { RefreshToken, RefreshTokenDocument } from './schemas/refresh-token.schema';
@@ -54,7 +55,7 @@ export class AuthService {
     ];
     const rest = Object.fromEntries(Object.entries(dto).filter(([k]) => !PRIVILEGED.includes(k)));
     const user = await this.usersService.create({ ...rest, role: Role.CUSTOMER });
-    return this.issueTokens(user.id, user.role, user.companyId?.toString() ?? null);
+    return this.issueTokens(user);
   }
 
   async login(dto: LoginDto) {
@@ -65,7 +66,7 @@ export class AuthService {
     const match = await bcrypt.compare(dto.password, user.passwordHash);
     if (!match) throw new UnauthorizedException('Identifiants invalides.');
 
-    return this.issueTokens(user.id, user.role, user.companyId?.toString() ?? null);
+    return this.issueTokens(user);
   }
 
   // ---- Email + OTP --------------------------------------------------------
@@ -143,7 +144,7 @@ export class AuthService {
     } else if (!user.emailVerified) {
       user = await this.usersService.update(user.id, { emailVerified: true });
     }
-    return this.issueTokens(user.id, user.role, user.companyId?.toString() ?? null);
+    return this.issueTokens(user);
   }
 
   // ---- Refresh & logout -----------------------------------------------
@@ -171,7 +172,7 @@ export class AuthService {
     await stored.save();
 
     const user = await this.usersService.findById(payload.sub);
-    return this.issueTokens(user.id, user.role, user.companyId?.toString() ?? null);
+    return this.issueTokens(user);
   }
 
   async logout(userId: string) {
@@ -184,8 +185,17 @@ export class AuthService {
 
   // ---- Internals ---------------------------------------------------------
 
-  private async issueTokens(userId: string, role: string, companyId: string | null) {
-    const payload = { sub: userId, role, companyId };
+  /** Also accepts an already-fetched user document, so callers that already
+   * have it (login, verifyOtp) don't re-fetch it twice. */
+  private async issueTokens(userOrId: UserDocument | string) {
+    const user =
+      typeof userOrId === 'string' ? await this.usersService.findById(userOrId) : userOrId;
+    const payload = {
+      sub: user.id,
+      role: user.role,
+      companyId: user.companyId?.toString() ?? null,
+      customRoleId: (user as any).customRoleId?.toString() ?? null,
+    };
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.config.get<string>('jwt.accessSecret'),
@@ -198,12 +208,11 @@ export class AuthService {
 
     const decoded: any = this.jwtService.decode(refreshToken);
     await this.refreshTokenModel.create({
-      userId,
+      userId: user.id,
       tokenHash: this.hashToken(refreshToken),
       expiresAt: new Date(decoded.exp * 1000),
     });
 
-    const user = await this.usersService.findById(userId);
     return { accessToken, refreshToken, user };
   }
 

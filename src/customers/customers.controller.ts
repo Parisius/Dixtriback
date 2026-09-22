@@ -5,6 +5,7 @@ import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('CRM')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class CustomersController {
 
   @Post()
   @Roles(Role.CASHIER, Role.SHOP_MANAGER, Role.MARKETING_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('customers.create')
   @ApiOperation({ summary: 'Créer une fiche client' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateCustomerDto) {
     return this.customersService.create(user, dto);
@@ -39,6 +41,7 @@ export class CustomersController {
 
   @Put(':id')
   @Roles(Role.SHOP_MANAGER, Role.MARKETING_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('customers.update')
   @ApiOperation({ summary: 'Mettre à jour une fiche client' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateCustomerDto) {
     return this.customersService.update(user, id, dto);

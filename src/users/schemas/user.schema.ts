@@ -41,6 +41,10 @@ export class User {
   @Prop({ type: String, default: null })
   zoneId?: string | null;
 
+  /** Only when role = 'custom' (see /v1/roles). */
+  @Prop({ type: String, default: null })
+  customRoleId?: string | null;
+
   @Prop({ type: String, default: null })
   enterpriseId?: string | null;
 

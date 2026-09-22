@@ -15,6 +15,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../common/constants/roles.enum';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -24,6 +25,7 @@ export class UsersController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('users.create')
   @ApiOperation({ summary: 'Créer un utilisateur (staff, tous rôles)' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateUserDto) {
     return this.usersService.createScoped(user, dto);
@@ -31,6 +33,7 @@ export class UsersController {
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.DIRECTOR)
+  @RequirePermission('users.read')
   @ApiOperation({ summary: 'Lister les utilisateurs' })
   findAll(
     @CurrentUser() user: AuthUser,
@@ -49,6 +52,7 @@ export class UsersController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('users.update')
   @ApiOperation({ summary: 'Mettre à jour un utilisateur' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.updateScoped(user, id, dto);
@@ -56,6 +60,7 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('users.delete')
   @ApiOperation({ summary: 'Désactiver un utilisateur (soft delete)' })
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.usersService.removeScoped(user, id);

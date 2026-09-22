@@ -54,4 +54,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   zoneId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Requis quand role="custom" : id du rôle personnalisé (POST /v1/roles) de la même entreprise.',
+  })
+  @IsOptional()
+  @IsString()
+  customRoleId?: string;
 }

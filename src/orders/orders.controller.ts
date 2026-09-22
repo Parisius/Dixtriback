@@ -5,6 +5,7 @@ import { CreateOrderDto, UpdateOrderDto } from './dto/order.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Store & POS')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class OrdersController {
 
   @Post()
   @Roles(Role.CASHIER, Role.SHOP_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('orders.create')
   @ApiOperation({ summary: 'Créer une vente (comptant/carte/mobile money uniquement)' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateOrderDto) {
     return this.ordersService.create(user, dto);
@@ -40,6 +42,7 @@ export class OrdersController {
 
   @Put(':id')
   @Roles(Role.CASHIER, Role.SHOP_MANAGER, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('orders.update')
   @ApiOperation({ summary: 'Gérer les retours et remboursements' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateOrderDto) {
     return this.ordersService.update(user, id, dto);

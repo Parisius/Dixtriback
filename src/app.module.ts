@@ -8,6 +8,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 
 import { TenancyModule } from './tenancy/tenancy.module';
 import { AuditModule } from './audit/audit.module';
+import { CustomRolesModule } from './custom-roles/custom-roles.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CompaniesModule } from './companies/companies.module';
@@ -30,6 +31,7 @@ import { ReportsModule } from './reports/reports.module';
     DatabaseModule,
     TenancyModule,
     AuditModule,
+    CustomRolesModule,
 
     // Phase 1 — Admin Dashboard, in build order (Section: Feuille de Route)
     AuthModule,

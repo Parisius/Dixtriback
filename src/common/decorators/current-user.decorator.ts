@@ -6,6 +6,7 @@ export interface AuthUser {
   role: string;
   storeId?: string | null;
   regionId?: string | null;
+  customRoleId?: string | null;
 }
 
 /**

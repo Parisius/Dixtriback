@@ -74,6 +74,7 @@ async function bootstrap() {
     .addTag('Warehouse', 'Entrepôts National/Import et Régionaux, transferts de stock')
     .addTag('Inventory', 'Unités individuellement sérialisées & traçabilité')
     .addTag('Catalog', 'Produits')
+    .addTag('Roles', 'Rôles personnalisés par entreprise (permissions à la carte)')
     .addTag('Region', 'Régions de chaque entreprise (référencées par regionId)')
     .addTag('Logs', "Journal d'activité par entreprise (admin) et global (super admin)")
     .addTag('Store', 'Boutiques physiques/virtuelles')

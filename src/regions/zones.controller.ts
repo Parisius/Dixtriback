@@ -5,6 +5,7 @@ import { CreateZoneDto, UpdateZoneDto } from './dto/zone.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Region')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class ZonesController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('zones.create')
   @ApiOperation({
     summary: 'Créer une zone dans une région',
     description:
@@ -44,6 +46,7 @@ export class ZonesController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('zones.update')
   @ApiOperation({ summary: 'Mettre à jour une zone (la région parente ne change pas)' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateZoneDto) {
     return this.zonesService.update(user, id, dto);
@@ -51,6 +54,7 @@ export class ZonesController {
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('zones.delete')
   @ApiOperation({ summary: 'Désactiver une zone' })
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.zonesService.remove(user, id);

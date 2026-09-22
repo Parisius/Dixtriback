@@ -5,6 +5,7 @@ import { CreatePurchaseOrderDto, ApprovePurchaseOrderDto } from './dto/purchase-
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Procurement')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class PurchaseOrdersController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('purchase-orders.create')
   @ApiOperation({ summary: 'Créer un bon de commande' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreatePurchaseOrderDto) {
     return this.purchaseOrdersService.create(user, dto);
@@ -39,6 +41,7 @@ export class PurchaseOrdersController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('purchase-orders.update')
   @ApiOperation({ summary: 'Mettre à jour un bon de commande' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: Record<string, any>) {
     return this.purchaseOrdersService.update(user, id, dto);
@@ -46,6 +49,7 @@ export class PurchaseOrdersController {
 
   @Post(':id/approve')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.FINANCIAL_MANAGER, Role.DIRECTOR)
+  @RequirePermission('purchase-orders.approve')
   @ApiOperation({ summary: 'Approuver un bon de commande' })
   approve(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ApprovePurchaseOrderDto) {
     return this.purchaseOrdersService.approve(user, id, dto?.approvedBy);

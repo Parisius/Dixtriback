@@ -5,6 +5,7 @@ import { CreateShipmentDto, ReceiveShipmentDto } from './dto/shipment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Procurement')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class ShipmentsController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('shipments.create')
   @ApiOperation({ summary: 'Enregistrer une expédition (conteneur/cargo/balle)' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateShipmentDto) {
     return this.shipmentsService.create(user, dto);
@@ -39,6 +41,7 @@ export class ShipmentsController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('shipments.update')
   @ApiOperation({ summary: "Mettre à jour une expédition (statut, manifeste, coûts)" })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: Record<string, any>) {
     return this.shipmentsService.update(user, id, dto);
@@ -46,6 +49,7 @@ export class ShipmentsController {
 
   @Post(':id/receive')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('shipments.receive')
   @ApiOperation({
     summary: 'Réceptionner une expédition : inspection, éclatement des lots, sérialisation',
   })

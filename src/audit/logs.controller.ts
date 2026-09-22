@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 
@@ -13,6 +14,7 @@ export class LogsController {
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('logs.read')
   @ApiOperation({
     summary: "Journal d'activité",
     description:
@@ -38,6 +40,7 @@ export class LogsController {
 
   @Get(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('logs.read')
   @ApiOperation({ summary: "Détail d'une entrée du journal" })
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.auditService.findById(user, id);

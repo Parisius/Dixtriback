@@ -19,4 +19,6 @@ export enum Role {
   FIELD_AGENT = 'field_agent',
   ENTERPRISE_STAFF = 'enterprise_staff',
   CUSTOMER = 'customer',
+  /** Permissions come from a company-owned CustomRole (see /v1/roles) instead of a fixed bundle. */
+  CUSTOM = 'custom',
 }

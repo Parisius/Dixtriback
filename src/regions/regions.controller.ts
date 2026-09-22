@@ -6,6 +6,7 @@ import { CreateRegionDto, UpdateRegionDto } from './dto/region.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Region')
 @ApiBearerAuth()
@@ -18,6 +19,7 @@ export class RegionsController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('regions.create')
   @ApiOperation({
     summary: 'Créer une région',
     description:
@@ -58,6 +60,7 @@ export class RegionsController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('regions.update')
   @ApiOperation({ summary: 'Mettre à jour une région' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateRegionDto) {
     return this.regionsService.update(user, id, dto);
@@ -65,6 +68,7 @@ export class RegionsController {
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('regions.delete')
   @ApiOperation({ summary: 'Désactiver une région' })
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.regionsService.remove(user, id);

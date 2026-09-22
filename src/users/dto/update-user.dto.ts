@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { Role } from '../../common/constants/roles.enum';
 
 /**
  * Partial by design — every field optional. As with CreateUserDto, extra
@@ -25,6 +26,18 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   storeId?: string;
+
+  @ApiPropertyOptional({ enum: Role })
+  @IsOptional()
+  @IsEnum(Role)
+  role?: Role;
+
+  @ApiPropertyOptional({
+    description: 'Requis quand role="custom" : id du rôle personnalisé (POST /v1/roles) de la même entreprise.',
+  })
+  @IsOptional()
+  @IsString()
+  customRoleId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

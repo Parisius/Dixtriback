@@ -6,6 +6,7 @@ import { OptionalAuth } from '../common/decorators/optional-auth.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Catalog')
 @Controller('products')
@@ -15,6 +16,7 @@ export class ProductsController {
   @Post()
   @ApiBearerAuth()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('products.create')
   @ApiOperation({ summary: 'Créer un produit' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateProductDto) {
     return this.productsService.create(user, dto);
@@ -51,6 +53,7 @@ export class ProductsController {
   @Put(':id')
   @ApiBearerAuth()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('products.update')
   @ApiOperation({ summary: 'Mettre à jour un produit' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateProductDto) {
     return this.productsService.update(user, id, dto);
@@ -59,6 +62,7 @@ export class ProductsController {
   @Delete(':id')
   @ApiBearerAuth()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('products.delete')
   @ApiOperation({ summary: 'Désactiver un produit' })
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.productsService.remove(user, id);

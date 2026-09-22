@@ -210,3 +210,19 @@ Migration d'une base où `regionId` était du texte libre (ex. `"littoral"`) :
 - Filtres : `companyId`, `actorId`, `resource`, `action`, `method`, `success`, `from`, `to`, `page`, `limit` (max 100).
 - Lecture seule (aucune route d'écriture ni de suppression). Conservation : `AUDIT_RETENTION_DAYS`
   (365 par défaut). `TRUST_PROXY` règle l'IP client derrière un proxy.
+
+## Rôles personnalisés (`/v1/roles`)
+
+En plus des rôles fixes, chaque entreprise peut créer ses propres rôles avec des permissions
+précises : `POST /v1/roles` (nom + `permissions: string[]`), `GET /v1/roles/permissions` pour le
+catalogue disponible, `GET/PUT/DELETE /v1/roles/:id`. Nom unique par entreprise.
+
+Pour affecter un rôle personnalisé à un utilisateur : `role: "custom"` + `customRoleId: "<id>"`
+(POST/PUT `/v1/users`) — le rôle doit être actif et appartenir à la même entreprise. Le token JWT
+porte le `customRoleId` ; désactiver le rôle (`DELETE /v1/roles/:id`) retire immédiatement les
+permissions à tous les utilisateurs concernés dès leur prochain token.
+
+Les rôles fixes (`admin`, `cashier`, etc.) sont inchangés et n'ont pas besoin de `customRoleId` ;
+un rôle personnalisé ne couvre que les actions listées dans `GET /v1/roles/permissions` (écritures
+et rapports) — la lecture (GET) reste ouverte à tout compte authentifié de l'entreprise, comme pour
+les rôles fixes.

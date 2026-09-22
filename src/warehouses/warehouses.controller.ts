@@ -5,6 +5,7 @@ import { CreateWarehouseDto, UpdateWarehouseDto, TransferStockDto } from './dto/
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Warehouse')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class WarehousesController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('warehouses.create')
   @ApiOperation({ summary: 'Créer un entrepôt (national/import ou régional)' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateWarehouseDto) {
     return this.warehousesService.create(user, dto);
@@ -39,6 +41,7 @@ export class WarehousesController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('warehouses.update')
   @ApiOperation({ summary: 'Mettre à jour un entrepôt' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateWarehouseDto) {
     return this.warehousesService.update(user, id, dto);
@@ -46,6 +49,7 @@ export class WarehousesController {
 
   @Post(':id/transfers')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER, Role.REGIONAL_SUPERVISOR)
+  @RequirePermission('warehouses.transfer')
   @ApiOperation({
     summary: 'Demander/exécuter un transfert de stock depuis cet entrepôt',
     description:

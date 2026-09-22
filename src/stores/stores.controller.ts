@@ -5,6 +5,7 @@ import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 
 @ApiTags('Store')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class StoresController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('stores.create')
   @ApiOperation({ summary: 'Créer une boutique physique/virtuelle' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateStoreDto) {
     return this.storesService.create(user, dto);
@@ -38,6 +40,7 @@ export class StoresController {
 
   @Put(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.SHOP_MANAGER)
+  @RequirePermission('stores.update')
   @ApiOperation({ summary: 'Mettre à jour une boutique' })
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateStoreDto) {
     return this.storesService.update(user, id, dto);
@@ -45,6 +48,7 @@ export class StoresController {
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('stores.delete')
   @ApiOperation({ summary: 'Désactiver une boutique' })
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.storesService.remove(user, id);

@@ -7,6 +7,7 @@ import { Role } from '../common/constants/roles.enum';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { RegionsService } from '../regions/regions.service';
+import { CustomRolesService } from '../custom-roles/custom-roles.service';
 
 /** Fields nobody may set through the users API. */
 const FORBIDDEN_FIELDS = ['_id', 'passwordHash', 'createdAt', 'updatedAt'];
@@ -19,6 +20,7 @@ export class UsersService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private tenancy: TenancyService,
     private regions: RegionsService,
+    private customRoles: CustomRolesService,
   ) {}
 
   /** dto is typed loosely so any extra properties beyond the DTO's own
@@ -94,7 +96,8 @@ export class UsersService {
     }
     const companyId = await this.tenancy.companyForCreate(user, data.companyId);
     const geo = await this.regions.resolveGeo(companyId, null, data);
-    return this.create({ ...data, ...geo, companyId });
+    const customRoleId = await this.customRoles.resolveForUser(companyId, data.role, data.customRoleId);
+    return this.create({ ...data, ...geo, companyId, customRoleId });
   }
 
   async findAllScoped(
@@ -126,7 +129,7 @@ export class UsersService {
     }
     const geo = await this.regions.resolveGeo(target.companyId, target, dto);
     // companyId is immutable here; password is hashed; role changes are guarded.
-    const { password, companyId: _c, role, ...rest } = strip(dto);
+    const { password, companyId: _c, role, customRoleId: _rawCustomRoleId, ...rest } = strip(dto);
     const changes: Record<string, any> = { ...rest, ...geo };
     if (role !== undefined) {
       if (isSelf) throw new ForbiddenException('Vous ne pouvez pas modifier votre propre rôle.');
@@ -134,6 +137,25 @@ export class UsersService {
         throw new ForbiddenException("Le rôle super admin ne peut pas être attribué ici.");
       }
       changes.role = role;
+    }
+    // Re-validate whenever the role changes OR a new customRoleId is sent
+    // (covers renaming a still-custom role's assignment, and clears a stale
+    // customRoleId automatically when the role moves away from 'custom' —
+    // target.customRoleId is only carried forward when the role ITSELF is
+    // unchanged, never as a leftover from before a role switch).
+    if (role !== undefined || _rawCustomRoleId !== undefined) {
+      const finalRole = role !== undefined ? role : target.role;
+      const requestedCustomRoleId =
+        _rawCustomRoleId !== undefined
+          ? _rawCustomRoleId
+          : finalRole === target.role
+            ? target.customRoleId
+            : undefined;
+      changes.customRoleId = await this.customRoles.resolveForUser(
+        target.companyId,
+        finalRole,
+        requestedCustomRoleId,
+      );
     }
     if (password) changes.passwordHash = await bcrypt.hash(password, 10);
     return this.update(id, changes);

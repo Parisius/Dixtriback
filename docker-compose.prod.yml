@@ -18,7 +18,9 @@ services:
     volumes:
       - mongo_data:/data/db
     ports:
-      - "127.0.0.1:27017:27017"
+      # Host port 27017 is already taken by another project on this VPS, so
+      # this one is published on 27018 instead (loopback-only either way).
+      - "127.0.0.1:27018:27017"
     networks:
       - internal
     healthcheck:

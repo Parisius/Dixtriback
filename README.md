@@ -142,7 +142,38 @@ est rejeté avec une erreur explicite, conformément à la décision verrouillé
 le crédit à l'agent terrain (non encore construit en Phase 1). Chaque ligne de vente
 sélectionne et « vend » des unités sérialisées précises en stock à la boutique, ce qui
 décrémente l'inventaire. Un retour (`PUT /orders/:id` avec `status: "returned"`) restocke
-automatiquement les unités concernées.
+automatiquement les unités concernées et horodate `returnedAt` (utilisé par la
+réconciliation de caisse, voir Caisses ci-dessous). `cashierId` est renseigné
+automatiquement depuis le compte connecté.
+
+**Remises.** Chaque ligne peut porter une remise (`{ type: "percent"|"fixed", value }`),
+et la commande peut en porter une supplémentaire sur le total déjà remisé. Une remise ne
+peut jamais dépasser ce sur quoi elle s'applique (`400` sinon). La commande stocke
+`subtotal` (avant remise), `discountTotal` et `total` (= `subtotal - discountTotal`).
+
+**Paiement fractionné.** `payments` est un tableau (`{ method, amount }`, une ou plusieurs
+entrées) — leur somme doit égaler exactement `total` (`400` sinon). Permet par exemple
+une partie en espèces et le reste en mobile money sur une même vente.
+
+**Reçu.** `GET /orders/:id/receipt` télécharge un reçu PDF (entreprise, boutique, lignes,
+remises, détail des paiements) — même contrôle d'accès que `GET /orders/:id`.
+
+## Caisses (`/v1/shifts`)
+
+Une caisse représente un service : ouverte avec un fonds de départ (`POST /v1/shifts`,
+`openingFloat`), fermée avec le montant compté physiquement (`POST /v1/shifts/:id/close`,
+`closingCash`). Une seule caisse peut être ouverte à la fois par boutique (`409` sinon).
+
+Les ventes ne référencent pas explicitement une caisse : à la fermeture, la réconciliation
+interroge simplement les commandes de cette boutique créées (ou retournées) entre
+l'ouverture et la fermeture — `expectedCash = openingFloat + encaissements espèces −
+remboursements espèces` sur cette période ; `discrepancy = closingCash − expectedCash`
+(négatif = manquant). La réponse inclut aussi un résumé (`summary`) : répartition par
+moyen de paiement, remises accordées, nombre de ventes/retours.
+
+`GET /reports/shifts` (permission `reports.shifts`) liste les caisses fermées d'une
+période avec leurs écarts, plus un total agrégé — pour repérer rapidement les manquants
+de caisse.
 
 ## CRM & Segmentation
 

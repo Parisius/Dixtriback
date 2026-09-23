@@ -20,6 +20,7 @@ import { UnitsModule } from './units/units.module';
 import { ProductsModule } from './products/products.module';
 import { RegionsModule } from './regions/regions.module';
 import { StoresModule } from './stores/stores.module';
+import { ShiftsModule } from './shifts/shifts.module';
 import { OrdersModule } from './orders/orders.module';
 import { CustomersModule } from './customers/customers.module';
 import { SegmentsModule } from './segments/segments.module';
@@ -45,6 +46,7 @@ import { ReportsModule } from './reports/reports.module';
     ProductsModule,
     RegionsModule,
     StoresModule,
+    ShiftsModule,
     OrdersModule,
     CustomersModule,
     SegmentsModule,

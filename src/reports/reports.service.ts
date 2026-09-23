@@ -3,14 +3,17 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Order, OrderDocument } from '../orders/schemas/order.schema';
 import { Unit, UnitDocument, UnitStatus } from '../units/schemas/unit.schema';
+import { Shift, ShiftDocument, ShiftStatus } from '../shifts/schemas/shift.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { round2 } from '../common/utils/money';
 
 @Injectable()
 export class ReportsService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Unit.name) private unitModel: Model<UnitDocument>,
+    @InjectModel(Shift.name) private shiftModel: Model<ShiftDocument>,
     private tenancy: TenancyService,
   ) {}
 
@@ -31,13 +34,23 @@ export class ReportsService {
     const groupBy = params.groupBy || 'store';
 
     if (groupBy === 'product') {
+      // Net revenue: gross minus that line's own discount — the same "what
+      // was actually charged" figure the other groupings get from order.total.
       const rows = await this.orderModel.aggregate([
         { $match: match },
         { $unwind: '$lines' },
         {
           $group: {
             _id: '$lines.productId',
-            revenue: { $sum: { $multiply: ['$lines.quantity', '$lines.unitPrice'] } },
+            revenue: {
+              $sum: {
+                $subtract: [
+                  { $multiply: ['$lines.quantity', '$lines.unitPrice'] },
+                  { $ifNull: ['$lines.discountAmount', 0] },
+                ],
+              },
+            },
+            discountGiven: { $sum: { $ifNull: ['$lines.discountAmount', 0] } },
             unitsSold: { $sum: '$lines.quantity' },
             orderCount: { $sum: 1 },
           },
@@ -54,6 +67,7 @@ export class ReportsService {
         $group: {
           _id: groupField,
           revenue: { $sum: '$total' },
+          discountGiven: { $sum: { $ifNull: ['$discountTotal', 0] } },
           orderCount: { $sum: 1 },
         },
       },
@@ -96,7 +110,14 @@ export class ReportsService {
       {
         $group: {
           _id: '$lines.productId',
-          revenue: { $sum: { $multiply: ['$lines.quantity', '$lines.unitPrice'] } },
+          revenue: {
+            $sum: {
+              $subtract: [
+                { $multiply: ['$lines.quantity', '$lines.unitPrice'] },
+                { $ifNull: ['$lines.discountAmount', 0] },
+              ],
+            },
+          },
           unitsSold: { $sum: '$lines.quantity' },
         },
       },
@@ -126,5 +147,39 @@ export class ReportsService {
    * Phase 1; kept so the reporting API surface matches the full spec. */
   async creditAging() {
     return { rows: [], note: 'Le module crédit (agent terrain) n\'est pas encore construit en Phase 1.' };
+  }
+
+  /** Cash-register reconciliation: closed shifts and their discrepancies,
+   * for spotting till shortages/overages over a company/store/period. */
+  async shifts(user: AuthUser, params: {
+    companyId?: string;
+    storeId?: string;
+    from?: string;
+    to?: string;
+  }) {
+    const match: Record<string, any> = await this.tenancy.companyMatch(user, params.companyId);
+    match.status = ShiftStatus.CLOSED;
+    if (params.storeId) match.storeId = params.storeId;
+    if (params.from || params.to) {
+      match.closedAt = {};
+      if (params.from) match.closedAt.$gte = new Date(params.from);
+      if (params.to) match.closedAt.$lte = new Date(params.to);
+    }
+
+    const rows = await this.shiftModel.find(match).sort('-closedAt').lean().exec();
+    const totalDiscrepancy = round2(rows.reduce((s, r) => s + (r.discrepancy || 0), 0));
+    const shortfalls = rows.filter((r) => (r.discrepancy || 0) < -0.01);
+    const overages = rows.filter((r) => (r.discrepancy || 0) > 0.01);
+    return {
+      rows,
+      summary: {
+        shiftCount: rows.length,
+        totalDiscrepancy,
+        shortfallCount: shortfalls.length,
+        overageCount: overages.length,
+        largestShortfall: shortfalls.length ? Math.min(...shortfalls.map((r) => r.discrepancy || 0)) : 0,
+        largestOverage: overages.length ? Math.max(...overages.map((r) => r.discrepancy || 0)) : 0,
+      },
+    };
   }
 }

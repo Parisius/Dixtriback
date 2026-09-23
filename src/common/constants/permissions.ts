@@ -42,6 +42,8 @@ export const PERMISSIONS = [
   { id: 'products.delete', label: 'Désactiver un produit' },
   { id: 'orders.create', label: 'Créer une vente (POS)' },
   { id: 'orders.update', label: 'Gérer retours/remboursements' },
+  { id: 'shifts.open', label: 'Ouvrir une caisse' },
+  { id: 'shifts.close', label: 'Fermer une caisse' },
   { id: 'customers.create', label: 'Créer une fiche client' },
   { id: 'customers.update', label: 'Modifier une fiche client' },
   { id: 'segments.create', label: 'Créer un segment' },
@@ -51,6 +53,7 @@ export const PERMISSIONS = [
   { id: 'reports.inventory', label: 'Voir le rapport de stock' },
   { id: 'reports.margin', label: 'Voir le rapport des marges' },
   { id: 'reports.credit-aging', label: "Voir l'ancienneté des créances" },
+  { id: 'reports.shifts', label: 'Voir le rapport de caisse (écarts)' },
   { id: 'logs.read', label: "Voir le journal d'activité" },
 ] as const;
 

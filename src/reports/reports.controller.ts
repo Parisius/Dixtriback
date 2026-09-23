@@ -54,4 +54,20 @@ export class ReportsController {
   creditAging() {
     return this.reportsService.creditAging();
   }
+
+  @Get('shifts')
+  @Roles(Role.SHOP_MANAGER, Role.FINANCIAL_MANAGER, Role.DIRECTOR, Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermission('reports.shifts')
+  @ApiOperation({
+    summary: 'Rapport de caisse : écarts entre le compté et le calculé, par service fermé',
+  })
+  shifts(
+    @CurrentUser() user: AuthUser,
+    @Query('companyId') companyId?: string,
+    @Query('storeId') storeId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reportsService.shifts(user, { companyId, storeId, from, to });
+  }
 }

@@ -50,6 +50,7 @@ services:
       S3_ACCESS_KEY: dixtri-dev
       S3_SECRET_KEY: dixtri-dev-secret-123
       S3_BUCKET: dixtri
+      S3_KEY_PREFIX: dixtri
       S3_AUTO_CREATE_BUCKET: "true"
       API_PUBLIC_URL: http://localhost:3000
     depends_on:

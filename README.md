@@ -286,7 +286,7 @@ Un seul endpoint pour tout : photos de produit, logo de boutique / d'entreprise,
   boutiques) ; chacun peut définir **son propre** avatar. Un rôle personnalisé a besoin de `files.upload`
   et de la permission de modification correspondante. Suppression : l'auteur, ou qui peut modifier l'élément.
 - **Stockage** — tout S3 compatible (MinIO). Variables : `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
-  `S3_BUCKET` (défaut `dixtri`), `S3_REGION`, `S3_AUTO_CREATE_BUCKET`, `API_PUBLIC_URL`. Sans `S3_ENDPOINT`
+  `S3_BUCKET` (défaut `dixtri`), `S3_KEY_PREFIX` (dossier dans le bucket, utile s'il est partagé), `S3_REGION`, `S3_AUTO_CREATE_BUCKET`, `API_PUBLIC_URL`. Sans `S3_ENDPOINT`
   l'API démarre normalement et les téléversements répondent `503`. En local, `docker-compose.yml` lance un
   MinIO jetable (l'image n'est plus publiée sur Docker Hub : la charger depuis un serveur qui l'a, voir le
   commentaire du fichier).

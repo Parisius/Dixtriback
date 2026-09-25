@@ -49,6 +49,8 @@ const buildConfig = () => ({
     accessKey: process.env.S3_ACCESS_KEY || '',
     secretKey: process.env.S3_SECRET_KEY || '',
     bucket: process.env.S3_BUCKET || 'dixtri',
+    // Folder inside the bucket. Lets several apps share one bucket without touching each other's objects.
+    keyPrefix: (process.env.S3_KEY_PREFIX || '').replace(/^\/+|\/+$/g, ''),
     forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== 'false',
     autoCreateBucket: process.env.S3_AUTO_CREATE_BUCKET === 'true',
   },

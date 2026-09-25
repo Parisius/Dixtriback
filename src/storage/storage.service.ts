@@ -16,6 +16,7 @@ interface S3Config {
   accessKey: string;
   secretKey: string;
   bucket: string;
+  keyPrefix: string;
   forcePathStyle: boolean;
   autoCreateBucket: boolean;
 }
@@ -133,6 +134,11 @@ export class StorageService implements OnModuleInit {
     } catch (err) {
       this.unavailable('delete', err);
     }
+  }
+
+  /** Full object key for a logical path: prefixed with S3_KEY_PREFIX when set. The full key is what gets stored. */
+  buildKey(path: string): string {
+    return this.cfg.keyPrefix ? `${this.cfg.keyPrefix}/${path}` : path;
   }
 
   get bucket(): string {

@@ -208,7 +208,9 @@ export class FilesService {
     }
 
     const isPublic = dto.ownerType === OwnerType.PRODUCT && detected.kind === 'image';
-    const key = `${companyId ?? 'platform'}/${dto.ownerType ?? 'misc'}/${crypto.randomUUID()}.${detected.ext}`;
+    const key = this.storage.buildKey(
+      `${companyId ?? 'platform'}/${dto.ownerType ?? 'misc'}/${crypto.randomUUID()}.${detected.ext}`,
+    );
 
     await this.storage.put(key, file.buffer, detected.mime);
 

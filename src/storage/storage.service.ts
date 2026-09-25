@@ -61,7 +61,7 @@ export class StorageService implements OnModuleInit {
       await this.ensureBucket();
       this.logger.log(`Storage ready (bucket "${this.cfg.bucket}" at ${this.cfg.endpoint}).`);
     } catch (err) {
-      this.logger.warn(`Storage not reachable yet (${(err as Error).message}); will retry on first upload.`);
+      this.logger.warn(`Storage check failed (${this.describe(err)}); will retry on first upload.`);
     }
   }
 
@@ -90,8 +90,20 @@ export class StorageService implements OnModuleInit {
     this.bucketReady = true;
   }
 
+  /** Error summary that is useful and safe to log: never includes credentials. */
+  private describe(err: any): string {
+    const status = err?.$metadata?.httpStatusCode;
+    const hint =
+      status === 403 ? 'access denied: wrong key, or no permission on this bucket'
+      : status === 404 ? `bucket "${this.cfg.bucket}" not found (and S3_AUTO_CREATE_BUCKET is ${this.cfg.autoCreateBucket})`
+      : status === 400 ? 'bad request: often a region/signature mismatch'
+      : err?.code === 'ECONNREFUSED' || err?.cause?.code === 'ECONNREFUSED' ? 'connection refused: check S3_ENDPOINT'
+      : '';
+    return [err?.name ?? 'Error', status ? `HTTP ${status}` : null, hint || null].filter(Boolean).join(', ');
+  }
+
   private unavailable(action: string, err: any): never {
-    this.logger.error(`Storage ${action} failed: ${err?.name ?? 'Error'}: ${err?.message ?? err}`);
+    this.logger.error(`Storage ${action} failed: ${this.describe(err)}`);
     throw new ServiceUnavailableException('Le stockage de fichiers est momentanément indisponible.');
   }
 

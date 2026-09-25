@@ -9,6 +9,8 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { AuditModule } from './audit/audit.module';
 import { CustomRolesModule } from './custom-roles/custom-roles.module';
+import { StorageModule } from './storage/storage.module';
+import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CompaniesModule } from './companies/companies.module';
@@ -33,6 +35,7 @@ import { ReportsModule } from './reports/reports.module';
     TenancyModule,
     AuditModule,
     CustomRolesModule,
+    StorageModule,
 
     // Phase 1 — Admin Dashboard, in build order (Section: Feuille de Route)
     AuthModule,
@@ -51,6 +54,7 @@ import { ReportsModule } from './reports/reports.module';
     CustomersModule,
     SegmentsModule,
     ReportsModule,
+    FilesModule,
   ],
   providers: [
     // Every route requires a valid JWT unless marked @Public(); role checks

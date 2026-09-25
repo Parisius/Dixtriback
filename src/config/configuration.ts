@@ -41,6 +41,23 @@ const buildConfig = () => ({
     pass: process.env.SMTP_PASS || '',
     from: process.env.MAIL_FROM || 'Dixtri <no-reply@dixtri.com>',
   },
+  // Object storage (S3-compatible, e.g. MinIO) for uploaded files. Left empty =
+  // uploads answer 503 but the API still boots.
+  s3: {
+    endpoint: process.env.S3_ENDPOINT || '',
+    region: process.env.S3_REGION || 'us-east-1',
+    accessKey: process.env.S3_ACCESS_KEY || '',
+    secretKey: process.env.S3_SECRET_KEY || '',
+    bucket: process.env.S3_BUCKET || 'dixtri',
+    forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== 'false',
+    autoCreateBucket: process.env.S3_AUTO_CREATE_BUCKET === 'true',
+  },
+  files: {
+    // Public base URL used to build links to public files (product images).
+    // Empty = derived from the incoming request.
+    publicBaseUrl: (process.env.API_PUBLIC_URL || '').replace(/\/$/, ''),
+    linkTtlSeconds: parseInt(process.env.FILE_LINK_TTL_SECONDS || '300', 10),
+  },
   otp: {
     ttlSeconds: parseInt(process.env.OTP_CODE_TTL_SECONDS || '300', 10),
     devStaticCode: process.env.OTP_DEV_STATIC_CODE || '123456',

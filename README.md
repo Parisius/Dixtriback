@@ -265,3 +265,28 @@ Les rôles fixes (`admin`, `cashier`, etc.) sont inchangés et n'ont pas besoin 
 un rôle personnalisé ne couvre que les actions listées dans `GET /v1/roles/permissions` (écritures
 et rapports) — la lecture (GET) reste ouverte à tout compte authentifié de l'entreprise, comme pour
 les rôles fixes.
+
+## Fichiers & images (`/v1/files`)
+
+Un seul endpoint pour tout : photos de produit, logo de boutique / d'entreprise, avatar, documents.
+`POST /v1/files` (multipart, champ `file`) + `ownerType` (`product|store|company|user`) et `ownerId`
+(l'entreprise est déduite du propriétaire) ; sans propriétaire = document libre de l'entreprise.
+`GET /v1/files?ownerType=&ownerId=&kind=&purpose=`, `GET /v1/files/:id`, `DELETE /v1/files/:id`.
+
+- **Visibilité** — les **images de produit sont publiques** : le champ `url` (`/v1/files/:id/public`, sans
+  connexion) est aussi ajouté à `product.media`, donc la vitrine les affiche directement. **Tout le reste est
+  privé** à l'entreprise : `GET /v1/files/:id/content` avec un jeton, ou `GET /v1/files/:id/link` qui donne
+  une URL signée temporaire (30 s–1 h) utilisable dans un `<img src>`. Le bucket S3 lui-même reste privé —
+  l'API sert tout (aucune politique de bucket n'est modifiée).
+- **Types acceptés** (vérifiés sur le **contenu**, pas sur l'en-tête) : jpg, png, webp, gif, PDF,
+  Word/Excel/PowerPoint, txt, csv. SVG, HTML et scripts sont refusés (`415`). Taille max `MAX_UPLOAD_BYTES`
+  (10 Mo par défaut, `413` au-delà). 20 fichiers max par élément.
+- **Qui peut quoi** — tout rôle du personnel peut téléverser ; rattacher un fichier à un produit / une
+  boutique / l'entreprise exige le droit de modifier cet élément (admin ; + chef de boutique pour les
+  boutiques) ; chacun peut définir **son propre** avatar. Un rôle personnalisé a besoin de `files.upload`
+  et de la permission de modification correspondante. Suppression : l'auteur, ou qui peut modifier l'élément.
+- **Stockage** — tout S3 compatible (MinIO). Variables : `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
+  `S3_BUCKET` (défaut `dixtri`), `S3_REGION`, `S3_AUTO_CREATE_BUCKET`, `API_PUBLIC_URL`. Sans `S3_ENDPOINT`
+  l'API démarre normalement et les téléversements répondent `503`. En local, `docker-compose.yml` lance un
+  MinIO jetable (l'image n'est plus publiée sur Docker Hub : la charger depuis un serveur qui l'a, voir le
+  commentaire du fichier).

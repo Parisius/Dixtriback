@@ -17,20 +17,49 @@ services:
       timeout: 5s
       retries: 5
 
+  # Throwaway S3 store for testing uploads locally. Production reuses the
+  # MinIO already running on the VPS instead (see docker-compose.prod.yml).
+  # NOTE: MinIO no longer publishes images on Docker Hub/Quay. Load one you
+  # already have, e.g. from a server that runs it:
+  #   ssh <server> 'docker save minio/minio:latest | gzip' | gunzip | docker load
+  minio:
+    image: minio/minio:latest
+    platform: linux/amd64
+    container_name: dixtrie-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: dixtri-dev
+      MINIO_ROOT_PASSWORD: dixtri-dev-secret-123
+    ports:
+      - "127.0.0.1:9002:9000"
+      - "127.0.0.1:9003:9001"
+    volumes:
+      - minio_data:/data
+
   backend:
     build: .
     container_name: dixtrie-backend
     restart: unless-stopped
-    depends_on:
-      mongo:
-        condition: service_healthy
     env_file: .env
     environment:
       # Overrides MONGODB_URI from .env: inside the network Mongo is "mongo", not localhost.
       MONGODB_URI: mongodb://mongo:27017/multicompany_commerce
       NODE_ENV: development
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: dixtri-dev
+      S3_SECRET_KEY: dixtri-dev-secret-123
+      S3_BUCKET: dixtri
+      S3_AUTO_CREATE_BUCKET: "true"
+      API_PUBLIC_URL: http://localhost:3000
+    depends_on:
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_started
     ports:
       - "3000:3000"
 
 volumes:
   mongo_data:
+  minio_data:

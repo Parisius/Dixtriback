@@ -54,6 +54,8 @@ export const PERMISSIONS = [
   { id: 'reports.margin', label: 'Voir le rapport des marges' },
   { id: 'reports.credit-aging', label: "Voir l'ancienneté des créances" },
   { id: 'reports.shifts', label: 'Voir le rapport de caisse (écarts)' },
+  { id: 'files.upload', label: 'Téléverser un fichier / une image' },
+  { id: 'files.delete', label: 'Supprimer un fichier / une image' },
   { id: 'logs.read', label: "Voir le journal d'activité" },
 ] as const;
 

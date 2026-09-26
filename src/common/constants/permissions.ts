@@ -40,6 +40,8 @@ export const PERMISSIONS = [
   { id: 'products.create', label: 'Créer un produit' },
   { id: 'products.update', label: 'Modifier un produit' },
   { id: 'products.delete', label: 'Désactiver un produit' },
+  { id: 'units.transfer', label: "Transférer une unité (hors transfert d'entrepôt)" },
+  { id: 'units.status', label: 'Déclarer une unité endommagée / radiée' },
   { id: 'orders.create', label: 'Créer une vente (POS)' },
   { id: 'orders.update', label: 'Gérer retours/remboursements' },
   { id: 'shifts.open', label: 'Ouvrir une caisse' },

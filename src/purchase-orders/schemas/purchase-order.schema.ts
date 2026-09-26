@@ -17,6 +17,11 @@ export class PurchaseOrder {
   @Prop({ type: Types.ObjectId, ref: 'Company', required: true, index: true })
   companyId: Types.ObjectId;
 
+  /** Human-readable name of the order (e.g. "Conteneur Cotonou — octobre"). Required by the API on
+   * creation; kept optional in the schema so orders created before it existed still load. */
+  @Prop({ trim: true, index: true })
+  name?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'Supplier', required: true })
   supplierId: Types.ObjectId;
 

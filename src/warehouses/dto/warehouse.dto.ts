@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsIn, IsArray, ArrayMinSize, ArrayMaxSize } from 'class-validator';
 import { WarehouseTier } from '../schemas/warehouse.schema';
 
 export class CreateWarehouseDto {
@@ -50,21 +50,34 @@ export class UpdateWarehouseDto {
 }
 
 export class TransferStockDto {
-  @ApiProperty()
-  @IsString()
+  @ApiProperty({ enum: ['warehouse', 'store', 'field_agent'] })
+  @IsIn(['warehouse', 'store', 'field_agent'])
   toType: 'warehouse' | 'field_agent' | 'store';
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Requis si toType = warehouse' })
   @IsOptional()
   @IsString()
   toWarehouseId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Requis si toType = store' })
   @IsOptional()
   @IsString()
   toStoreId?: string;
 
-  @ApiProperty({ type: [String], description: 'Serialized unit ids being transferred' })
+  @ApiPropertyOptional({ description: "Requis si toType = field_agent : id d'un utilisateur de rôle field_agent de la même entreprise" })
+  @IsOptional()
+  @IsString()
+  toAgentId?: string;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      "Unités à transférer. Elles doivent être en stock DANS cet entrepôt ; tout ou rien : si une seule est invalide, aucune ne bouge.",
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @IsString({ each: true })
   unitIds: string[];
 
   @ApiPropertyOptional()

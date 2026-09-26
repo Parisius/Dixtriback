@@ -5,6 +5,7 @@ import { UnitsController } from './units.controller';
 import { Unit, UnitSchema } from './schemas/unit.schema';
 import { Warehouse, WarehouseSchema } from '../warehouses/schemas/warehouse.schema';
 import { Store, StoreSchema } from '../stores/schemas/store.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { Store, StoreSchema } from '../stores/schemas/store.schema';
       { name: Unit.name, schema: UnitSchema },
       { name: Warehouse.name, schema: WarehouseSchema },
       { name: Store.name, schema: StoreSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [UnitsController],

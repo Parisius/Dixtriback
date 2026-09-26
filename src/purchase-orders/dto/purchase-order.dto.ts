@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePurchaseOrderDto {
@@ -10,6 +10,12 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @IsString()
   companyId?: string;
+
+  @ApiProperty({ example: 'Conteneur Cotonou — octobre', description: 'Nom du bon de commande, pour le retrouver facilement.' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name: string;
 
   @ApiProperty()
   @IsString()

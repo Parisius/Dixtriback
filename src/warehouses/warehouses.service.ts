@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Warehouse, WarehouseDocument } from './schemas/warehouse.schema';
@@ -65,23 +65,26 @@ export class WarehousesService {
     const warehouse = await this.findById(user, warehouseId); // 404s if missing or in another company
     const companyId = String(warehouse.companyId);
 
-    const toOwnerType =
+    const dest =
       dto.toType === 'warehouse'
-        ? UnitOwnerType.WAREHOUSE
+        ? { type: UnitOwnerType.WAREHOUSE, id: dto.toWarehouseId, field: 'toWarehouseId' }
         : dto.toType === 'store'
-          ? UnitOwnerType.STORE
-          : UnitOwnerType.FIELD_AGENT;
-    const toOwnerId = dto.toWarehouseId || dto.toStoreId;
-    if (!toOwnerId) {
-      throw new NotFoundException('Destination du transfert manquante (toWarehouseId ou toStoreId)');
+          ? { type: UnitOwnerType.STORE, id: dto.toStoreId, field: 'toStoreId' }
+          : { type: UnitOwnerType.FIELD_AGENT, id: dto.toAgentId, field: 'toAgentId' };
+    if (!dest.id) {
+      throw new BadRequestException(`Destination manquante : ${dest.field} est requis quand toType = "${dto.toType}".`);
+    }
+    if (dest.type === UnitOwnerType.WAREHOUSE && dest.id === warehouseId) {
+      throw new BadRequestException("L'entrepôt de destination doit être différent de l'entrepôt source.");
     }
 
-    const results = await Promise.all(
-      dto.unitIds.map((unitId) =>
-        // units and destination must both belong to the source warehouse's company
-        this.unitsService.transferChecked(companyId, unitId, toOwnerType, toOwnerId, dto.note),
-      ),
-    );
+    // Units must be in stock IN THIS warehouse, and everything is validated
+    // before anything moves (all-or-nothing).
+    const results = await this.unitsService.transferMany(companyId, dto.unitIds, dest.type, dest.id, {
+      note: dto.note,
+      by: user.userId,
+      from: { type: UnitOwnerType.WAREHOUSE, id: warehouseId },
+    });
     return { transferred: results.length, units: results };
   }
 }

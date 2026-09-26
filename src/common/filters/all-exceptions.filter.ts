@@ -20,6 +20,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
+    // A malformed id (e.g. GET /stores/not-an-id) makes Mongoose throw a CastError:
+    // that is the caller's mistake, not a server failure.
+    const isCastError = (exception as any)?.name === 'CastError';
+    if (isCastError) {
+      response.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: 'Identifiant ou valeur invalide.',
+        error: 'BadRequestException',
+      });
+      return;
+    }
+
     const isHttp = exception instanceof HttpException;
     const status = isHttp
       ? exception.getStatus()

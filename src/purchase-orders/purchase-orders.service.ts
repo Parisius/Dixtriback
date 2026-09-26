@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -21,9 +21,12 @@ export class PurchaseOrdersService {
     return new this.purchaseOrderModel({ ...dto, companyId, status: PurchaseOrderStatus.PENDING_APPROVAL }).save();
   }
 
-  async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string, status?: string) {
+  async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string, status?: string, q?: string) {
     const filter: Record<string, any> = {};
     if (status) filter.status = status;
+    if (typeof q === 'string' && q.trim()) {
+      filter.name = { $regex: q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+    }
     // Applied last: nothing the client sends can widen the company scope.
     Object.assign(filter, await this.tenancy.companyFilter(user, companyId));
     const [data, total] = await Promise.all([
@@ -45,6 +48,9 @@ export class PurchaseOrdersService {
 
   async update(user: AuthUser, id: string, dto: Record<string, any>) {
     await this.findById(user, id);
+    if ('name' in dto && (typeof dto.name !== 'string' || dto.name.trim().length < 2 || dto.name.length > 120)) {
+      throw new BadRequestException('name doit contenir entre 2 et 120 caractères.');
+    }
     const updated = await this.purchaseOrderModel
       .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();

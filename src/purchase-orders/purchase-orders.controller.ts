@@ -29,8 +29,9 @@ export class PurchaseOrdersController {
     @Query('limit') limit?: number,
     @Query('companyId') companyId?: string,
     @Query('status') status?: string,
+    @Query('q') q?: string,
   ) {
-    return this.purchaseOrdersService.findAll(user, page, limit, companyId, status);
+    return this.purchaseOrdersService.findAll(user, page, limit, companyId, status, q);
   }
 
   @Get(':id')

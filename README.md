@@ -290,3 +290,29 @@ Un seul endpoint pour tout : photos de produit, logo de boutique / d'entreprise,
   l'API démarre normalement et les téléversements répondent `503`. En local, `docker-compose.yml` lance un
   MinIO jetable (l'image n'est plus publiée sur Docker Hub : la charger depuis un serveur qui l'a, voir le
   commentaire du fichier).
+
+## Unités : qui peut quoi, et règles
+
+Une unité = un exemplaire physique sérialisé. Elles ne sont **créées qu'à la réception d'une expédition**
+(`POST /shipments/:id/receive`) ; le stock d'un produit = le nombre de ses unités `in_stock`.
+
+- **Transférer** — `POST /units/:id/transfer` (une unité) et `POST /warehouses/:id/transfers` (un lot) :
+  réservé aux rôles d'entrepôt (super admin, admin, chef d'entrepôt, superviseur régional ; permission
+  `units.transfer` / `warehouses.transfer`). Seule une unité **`in_stock`** peut bouger ; destinations
+  autorisées : entrepôt, boutique, agent terrain (`toAgentId`), de la **même entreprise** — les ventes et
+  retours passent par `/orders`, jamais par ici (une unité vendue ne revient pas en stock sans retour).
+  Un transfert d'entrepôt exige que les unités soient **dans cet entrepôt**, et un lot est
+  **tout ou rien** : si une seule unité est invalide, aucune ne bouge. L'historique de l'unité retient l'auteur.
+- **Endommagée / radiée** — `POST /units/:id/status` `{ status, reason }` (permission `units.status`, mêmes
+  rôles) : `in_stock → damaged | written_off`, `damaged → written_off | in_stock` (réparée). Motif obligatoire,
+  `written_off` est définitif, une unité vendue ne change pas ici. L'unité **sort du stock vendable** (POS et
+  rapport de stock ne comptent que `in_stock`) mais reste rattachée à son emplacement ; le rapport de stock
+  la compte par statut.
+- Lecture (liste, détail, `GET /units/:serial/trace`) : tout compte de l'entreprise.
+
+## Bon de commande : `name`
+
+`POST /v1/purchase-orders` exige désormais un **`name`** (2 à 120 caractères) ; modifiable via `PUT`, et
+`GET /v1/purchase-orders?q=` cherche dans le nom (insensible à la casse). Les bons créés avant cet ajout n'ont
+simplement pas de nom.
+

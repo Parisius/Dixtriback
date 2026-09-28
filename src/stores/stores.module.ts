@@ -4,10 +4,14 @@ import { RegionsModule } from '../regions/regions.module';
 import { StoresService } from './stores.service';
 import { StoresController } from './stores.controller';
 import { Store, StoreSchema } from './schemas/store.schema';
+import { UnitsModule } from '../units/units.module';
 
 @Module({
   imports: [
-    RegionsModule,MongooseModule.forFeature([{ name: Store.name, schema: StoreSchema }])],
+    RegionsModule,
+    MongooseModule.forFeature([{ name: Store.name, schema: StoreSchema }]),
+    UnitsModule,
+  ],
   controllers: [StoresController],
   providers: [StoresService],
   exports: [StoresService],

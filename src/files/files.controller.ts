@@ -64,8 +64,8 @@ export class FilesController {
     description:
       "Un seul endpoint pour tout : photo de produit, logo de boutique/entreprise, avatar, document. " +
       "Rattachez-le avec `ownerType` + `ownerId` (l'entreprise en est déduite). Les images de produit sont " +
-      "publiques (champ `url`, ajoutée à `product.media`) ; tout le reste est privé à l'entreprise. Le type " +
-      "réel est vérifié sur le contenu ; taille max 10 Mo par défaut.",
+      "publiques (champ `url`) et apparaissent dans `product.files` ; tout le reste est privé à l'entreprise. " +
+      "Le type réel est vérifié sur le contenu ; taille max 10 Mo par défaut.",
   })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10, fieldSize: 2048 } }))
   upload(
@@ -148,7 +148,7 @@ export class FilesController {
   @HttpCode(204)
   @ApiOperation({
     summary: 'Supprimer un fichier',
-    description: "Par son auteur, ou par un rôle autorisé à modifier l'élément auquel il est rattaché. Retire aussi l'image de `product.media`.",
+    description: "Par son auteur, ou par un rôle autorisé à modifier l'élément auquel il est rattaché. Disparaît aussitôt de `product.files`.",
   })
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.filesService.remove(user, id);

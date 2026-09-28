@@ -234,11 +234,6 @@ export class FilesService {
       throw err;
     }
 
-    if (isPublic && dto.ownerId) {
-      await this.productModel
-        .updateOne({ _id: dto.ownerId }, { $addToSet: { media: this.publicUrl(asset.id, requestBase) } })
-        .exec();
-    }
     return this.view(asset, requestBase);
   }
 
@@ -348,10 +343,5 @@ export class FilesService {
     }
     await this.storage.delete(asset.key);
     await asset.deleteOne();
-    if (asset.isPublic && asset.ownerType === OwnerType.PRODUCT && asset.ownerId) {
-      await this.productModel
-        .updateOne({ _id: asset.ownerId }, { $pull: { media: { $regex: `/files/${asset.id}/public$` } } })
-        .exec();
-    }
   }
 }

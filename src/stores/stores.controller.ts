@@ -53,4 +53,16 @@ export class StoresController {
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.storesService.remove(user, id);
   }
+
+  @Get(':id/inventory')
+  @ApiOperation({
+    summary: 'Stock de cette boutique : quantité par produit, par statut',
+    description:
+      'Pour chaque produit détenu par cette boutique : la quantité totale et sa répartition par statut ' +
+      '(in_stock, sold, damaged, written_off, in_transit, returned) — toujours un sous-ensemble de ce ' +
+      "qu'un entrepôt lui a transféré. Le stock global toutes entreprises reste sur `GET /v1/reports/inventory`.",
+  })
+  inventory(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.storesService.inventory(user, id);
+  }
 }

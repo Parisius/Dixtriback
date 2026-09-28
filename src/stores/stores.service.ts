@@ -5,6 +5,8 @@ import { Store, StoreDocument } from './schemas/store.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { RegionsService } from '../regions/regions.service';
+import { UnitsService } from '../units/units.service';
+import { UnitOwnerType } from '../units/schemas/unit.schema';
 
 @Injectable()
 export class StoresService {
@@ -12,6 +14,7 @@ export class StoresService {
     @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
     private tenancy: TenancyService,
     private regions: RegionsService,
+    private unitsService: UnitsService,
   ) {}
 
   async create(user: AuthUser, dto: Record<string, any>) {
@@ -54,5 +57,12 @@ export class StoresService {
   async remove(user: AuthUser, id: string) {
     await this.findById(user, id);
     await this.storeModel.findByIdAndUpdate(id, { isActive: false }).exec();
+  }
+
+  /** This store's quantity per product, broken down by status
+   * (in_stock/sold/damaged/...). See UnitsService.stockForOwner. */
+  async inventory(user: AuthUser, id: string) {
+    const store = await this.findById(user, id); // 404s if missing or in another company
+    return this.unitsService.stockForOwner(user, UnitOwnerType.STORE, String(store.id));
   }
 }

@@ -53,9 +53,22 @@ export class WarehousesController {
   @ApiOperation({
     summary: 'Demander/exécuter un transfert de stock depuis cet entrepôt',
     description:
-      'Country → Regional, Regional → Field Agent, Regional → Store. Déplace des unités sérialisées précises.',
+      'Country → Regional, Regional → Field Agent, Regional → Store. Déplace des unités sérialisées : soit ' +
+      'une liste précise (`unitIds`), soit `productId` + `quantity` (les plus anciennes en stock sont choisies).',
   })
   transfer(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TransferStockDto) {
     return this.warehousesService.transferStock(user, id, dto);
+  }
+
+  @Get(':id/inventory')
+  @ApiOperation({
+    summary: "Stock de cet entrepôt : quantité par produit, par statut",
+    description:
+      'Pour chaque produit détenu par cet entrepôt : la quantité totale et sa répartition par statut ' +
+      '(in_stock, sold, damaged, written_off, in_transit, returned). Le stock global toutes entreprises ' +
+      "reste sur `GET /v1/reports/inventory`.",
+  })
+  inventory(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.warehousesService.inventory(user, id);
   }
 }

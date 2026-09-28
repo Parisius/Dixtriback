@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsIn, IsArray, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsIn, IsArray, ArrayMinSize, ArrayMaxSize, IsInt, Min } from 'class-validator';
 import { WarehouseTier } from '../schemas/warehouse.schema';
 
 export class CreateWarehouseDto {
@@ -69,16 +69,31 @@ export class TransferStockDto {
   @IsString()
   toAgentId?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: [String],
     description:
-      "Unités à transférer. Elles doivent être en stock DANS cet entrepôt ; tout ou rien : si une seule est invalide, aucune ne bouge.",
+      "Unités précises à transférer (tout ou rien : si une seule est invalide, aucune ne bouge). " +
+      'Alternative à `productId` + `quantity` — fournir l’un ou l’autre, pas les deux.',
   })
+  @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(500)
   @IsString({ each: true })
-  unitIds: string[];
+  unitIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Avec `quantity` : transfère les N unités `in_stock` les plus anciennes de ce produit. Alternative à `unitIds`.',
+  })
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
+  @ApiPropertyOptional({ description: 'Requis avec `productId` (au lieu de `unitIds`).' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  quantity?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

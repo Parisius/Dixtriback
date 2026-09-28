@@ -27,16 +27,19 @@ export class ProductsService {
     this.configuredBaseUrl = config.get<string>('files.publicBaseUrl') || '';
   }
 
+  /** A plain link: `url` always resolves to the file's bytes (the public
+   * route for images, the authenticated route otherwise — callers already
+   * hold a token for everything else on this API). `name` is whatever the
+   * uploader's filename was — informational, not guaranteed. `kind` (image
+   * vs document) is the one thing always meaningful to a caller deciding
+   * what to do with the link. */
   private fileView(a: any, base: string) {
     return {
-      _id: String(a._id),
-      originalName: a.originalName,
-      contentType: a.contentType,
-      size: a.size,
+      url: a.isPublic
+        ? `${base}/${this.apiPrefix}/files/${a._id}/public`
+        : `${base}/${this.apiPrefix}/files/${a._id}/content`,
+      name: a.originalName || null,
       kind: a.kind,
-      purpose: a.purpose ?? null,
-      isPublic: !!a.isPublic,
-      url: a.isPublic ? `${base}/${this.apiPrefix}/files/${a._id}/public` : null,
     };
   }
 
@@ -44,9 +47,8 @@ export class ProductsService {
     return typeof product.toObject === 'function' ? product.toObject() : product;
   }
 
-  /** Every image/document attached to a product (see the Files endpoints) —
-   * `media` stays as the plain public-URL list for backward compatibility,
-   * `files` gives the full picture, images and private documents alike. */
+  /** Every image/document attached to a product (see the Files endpoints),
+   * as a plain list of links. */
   private async attachFiles<T extends { _id: unknown }>(
     product: T,
     requestBase: string,

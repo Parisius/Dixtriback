@@ -78,13 +78,50 @@ export class WarehousesService {
       throw new BadRequestException("L'entrepôt de destination doit être différent de l'entrepôt source.");
     }
 
+    const unitIds = await this.resolveUnitIds(companyId, warehouseId, dto);
+
     // Units must be in stock IN THIS warehouse, and everything is validated
     // before anything moves (all-or-nothing).
-    const results = await this.unitsService.transferMany(companyId, dto.unitIds, dest.type, dest.id, {
+    const results = await this.unitsService.transferMany(companyId, unitIds, dest.type, dest.id, {
       note: dto.note,
       by: user.userId,
       from: { type: UnitOwnerType.WAREHOUSE, id: warehouseId },
     });
     return { transferred: results.length, units: results };
+  }
+
+  /** Either an explicit `unitIds` list, or `productId` + `quantity` — in which
+   * case the oldest-received in-stock units of that product, in this
+   * warehouse, are picked automatically (same rule as POS checkout). */
+  private async resolveUnitIds(companyId: string, warehouseId: string, dto: TransferStockDto): Promise<string[]> {
+    const hasIds = !!dto.unitIds?.length;
+    const hasQty = !!(dto.productId && dto.quantity);
+    if (hasIds && hasQty) {
+      throw new BadRequestException('Fournir "unitIds" OU "productId" + "quantity", pas les deux.');
+    }
+    if (hasIds) return dto.unitIds!;
+    if (!hasQty) {
+      throw new BadRequestException('Fournir "unitIds", ou "productId" + "quantity".');
+    }
+    const available = await this.unitsService.findAvailable(
+      companyId,
+      UnitOwnerType.WAREHOUSE,
+      warehouseId,
+      dto.productId!,
+      dto.quantity!,
+    );
+    if (available.length < dto.quantity!) {
+      throw new BadRequestException(
+        `Stock insuffisant pour ce produit dans cet entrepôt (${available.length}/${dto.quantity} disponibles).`,
+      );
+    }
+    return available.map((u) => u.id);
+  }
+
+  /** This warehouse's quantity per product, broken down by status
+   * (in_stock/sold/damaged/...). See UnitsService.stockForOwner. */
+  async inventory(user: AuthUser, id: string) {
+    const warehouse = await this.findById(user, id); // 404s if missing or in another company
+    return this.unitsService.stockForOwner(user, UnitOwnerType.WAREHOUSE, String(warehouse.id));
   }
 }

@@ -274,10 +274,14 @@ Un seul endpoint pour tout : photos de produit, logo de boutique / d'entreprise,
 `GET /v1/files?ownerType=&ownerId=&kind=&purpose=`, `GET /v1/files/:id`, `DELETE /v1/files/:id`.
 
 - **Visibilité** — les **images de produit sont publiques** : le champ `url` (`/v1/files/:id/public`, sans
-  connexion) est aussi ajouté à `product.media`, donc la vitrine les affiche directement. **Tout le reste est
+  connexion) et apparaît dans `product.files`, donc la vitrine les affiche directement. **Tout le reste est
   privé** à l'entreprise : `GET /v1/files/:id/content` avec un jeton, ou `GET /v1/files/:id/link` qui donne
   une URL signée temporaire (30 s–1 h) utilisable dans un `<img src>`. Le bucket S3 lui-même reste privé —
   l'API sert tout (aucune politique de bucket n'est modifiée).
+- **`product.files`** — chaque produit renvoie `files`, une simple liste de liens : `{ url, name?, kind }`
+  (`kind` = `image` ou `document`, `name` est le nom d'origine du fichier, facultatif). `url` pointe
+  toujours vers le contenu réel (`/public` pour une image, `/content` pour un document privé — un jeton
+  est alors requis, comme pour tout appel authentifié). Il n'y a plus de champ `media` séparé.
 - **Types acceptés** (vérifiés sur le **contenu**, pas sur l'en-tête) : jpg, png, webp, gif, PDF,
   Word/Excel/PowerPoint, txt, csv. SVG, HTML et scripts sont refusés (`415`). Taille max `MAX_UPLOAD_BYTES`
   (10 Mo par défaut, `413` au-delà). 20 fichiers max par élément.
@@ -303,12 +307,25 @@ Une unité = un exemplaire physique sérialisé. Elles ne sont **créées qu'à 
   retours passent par `/orders`, jamais par ici (une unité vendue ne revient pas en stock sans retour).
   Un transfert d'entrepôt exige que les unités soient **dans cet entrepôt**, et un lot est
   **tout ou rien** : si une seule unité est invalide, aucune ne bouge. L'historique de l'unité retient l'auteur.
+  Le lot se précise soit par `unitIds` (unités précises), soit par `productId` + `quantity` (les plus
+  anciennes `in_stock` de ce produit sont choisies automatiquement) — les deux font la même chose, le
+  second évite d'avoir à connaître les ids un par un pour un transfert entrepôt → boutique ou
+  entrepôt national → entrepôt régional.
 - **Endommagée / radiée** — `POST /units/:id/status` `{ status, reason }` (permission `units.status`, mêmes
   rôles) : `in_stock → damaged | written_off`, `damaged → written_off | in_stock` (réparée). Motif obligatoire,
   `written_off` est définitif, une unité vendue ne change pas ici. L'unité **sort du stock vendable** (POS et
-  rapport de stock ne comptent que `in_stock`) mais reste rattachée à son emplacement ; le rapport de stock
-  la compte par statut.
+  rapports de stock ne comptent que `in_stock`) mais reste rattachée à son emplacement.
 - Lecture (liste, détail, `GET /units/:serial/trace`) : tout compte de l'entreprise.
+- **Stock par produit et par emplacement** :
+  - `GET /v1/products/:id/stock` — quantité `in_stock` d'**un** produit : `totalInStock` (toute
+    l'entreprise) puis `byWarehouse` / `byStore` / `byFieldAgent` (avec les noms résolus). Ouvert à tout
+    rôle authentifié.
+  - `GET /v1/warehouses/:id/inventory` et `GET /v1/stores/:id/inventory` — **tous** les produits d'un
+    entrepôt ou d'une boutique donné(e), chacun avec sa quantité totale et sa répartition par statut
+    (`in_stock`, `sold`, `damaged`, `written_off`, `in_transit`, `returned`). Le stock d'une boutique est
+    toujours un sous-ensemble de ce qu'un entrepôt lui a transféré — jamais un total séparé.
+  - `GET /v1/reports/inventory` reste le rapport global (rotation, ruptures, filtrable par
+    `warehouseId`/`companyId`), réservé aux rôles d'entrepôt/admin.
 
 ## Bon de commande : `name`
 

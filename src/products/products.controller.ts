@@ -24,7 +24,8 @@ export class ProductsController {
     summary: 'Créer un produit',
     description:
       "La réponse inclut `files: []` (toujours vide à la création — image et documents s'ajoutent " +
-      'ensuite via `POST /v1/files` avec `ownerType=product`, `ownerId=<id du produit>`).',
+      'ensuite via `POST /v1/files` avec `ownerType=product`, `ownerId=<id du produit>`). Chaque entrée ' +
+      'de `files` est un simple lien : `{ url, name?, kind }`.',
   })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateProductDto, @Req() req: Request) {
     return this.productsService.create(user, dto, baseUrl(req));
@@ -38,8 +39,8 @@ export class ProductsController {
     description:
       "Vitrine e-commerce (visiteur ou client, sans connexion) : les produits actifs de toutes les " +
       "entreprises. Personnel connecté : uniquement les produits de sa propre entreprise " +
-      "(super admin : toutes les entreprises). Chaque produit inclut `files` (image et documents " +
-      "rattachés) en plus de `media` (URLs publiques des images, conservé pour compatibilité).",
+      "(super admin : toutes les entreprises). Chaque produit inclut `files` : une liste de liens " +
+      "`{ url, name?, kind }` vers son image et ses documents rattachés.",
   })
   findAll(
     @CurrentUser() user: AuthUser | null,

@@ -239,6 +239,34 @@ export class UnitsService {
   }
 
   /**
+   * One warehouse's or store's quantity per product, broken down by status
+   * (in_stock/sold/damaged/written_off/in_transit/returned). The caller must
+   * already have checked the owner exists and is in scope (see
+   * WarehousesService.inventory / StoresService.inventory).
+   */
+  async stockForOwner(user: AuthUser, ownerType: UnitOwnerType, ownerId: string) {
+    const filter: Record<string, any> = {
+      ownerType,
+      ownerId,
+      ...(await this.tenancy.companyFilter(user)),
+    };
+    const rows = await this.unitModel.aggregate([
+      { $match: filter },
+      { $group: { _id: { productId: '$productId', status: '$status' }, count: { $sum: 1 } } },
+    ]);
+
+    const byProduct = new Map<string, { productId: string; total: number; byStatus: Record<string, number> }>();
+    for (const r of rows) {
+      const productId = String(r._id.productId);
+      if (!byProduct.has(productId)) byProduct.set(productId, { productId, total: 0, byStatus: {} });
+      const entry = byProduct.get(productId)!;
+      entry.byStatus[r._id.status] = r.count;
+      entry.total += r.count;
+    }
+    return { ownerType, ownerId, products: [...byProduct.values()] };
+  }
+
+  /**
    * One product's sellable quantity, broken down the way stock actually
    * lives: a single global count of everything `in_stock` company-wide, plus
    * where each of those units currently sits (warehouse / store / field

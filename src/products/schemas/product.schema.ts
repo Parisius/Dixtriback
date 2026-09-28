@@ -23,9 +23,6 @@ export class Product {
   @Prop({ type: [Object], default: [] })
   priceOverrides: Record<string, any>[];
 
-  @Prop({ type: [String], default: [] })
-  media: string[];
-
   @Prop({ default: true })
   isActive: boolean;
 }

@@ -1,23 +1,89 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Product, ProductDocument } from './schemas/product.schema';
+import { FileAsset, FileAssetDocument } from '../files/schemas/file-asset.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { Role } from '../common/constants/roles.enum';
+import { UnitsService } from '../units/units.service';
 
 const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class ProductsService {
+  private readonly apiPrefix: string;
+  private readonly configuredBaseUrl: string;
+
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(FileAsset.name) private fileModel: Model<FileAssetDocument>,
     private tenancy: TenancyService,
-  ) {}
+    private unitsService: UnitsService,
+    config: ConfigService,
+  ) {
+    this.apiPrefix = config.get<string>('apiPrefix')!;
+    this.configuredBaseUrl = config.get<string>('files.publicBaseUrl') || '';
+  }
 
-  async create(user: AuthUser, dto: Record<string, any>) {
+  private fileView(a: any, base: string) {
+    return {
+      _id: String(a._id),
+      originalName: a.originalName,
+      contentType: a.contentType,
+      size: a.size,
+      kind: a.kind,
+      purpose: a.purpose ?? null,
+      isPublic: !!a.isPublic,
+      url: a.isPublic ? `${base}/${this.apiPrefix}/files/${a._id}/public` : null,
+    };
+  }
+
+  private plain(product: any) {
+    return typeof product.toObject === 'function' ? product.toObject() : product;
+  }
+
+  /** Every image/document attached to a product (see the Files endpoints) —
+   * `media` stays as the plain public-URL list for backward compatibility,
+   * `files` gives the full picture, images and private documents alike. */
+  private async attachFiles<T extends { _id: unknown }>(
+    product: T,
+    requestBase: string,
+  ): Promise<T & { files: Record<string, any>[] }> {
+    const assets = await this.fileModel
+      .find({ ownerType: 'product', ownerId: String((product as any)._id) })
+      .sort('-createdAt')
+      .lean()
+      .exec();
+    const base = this.configuredBaseUrl || requestBase;
+    return Object.assign(this.plain(product), { files: assets.map((a) => this.fileView(a, base)) });
+  }
+
+  /** Same as attachFiles, batched: one query for every product on the page
+   * instead of one per product (this backs the public storefront listing). */
+  private async attachFilesToMany(products: ProductDocument[], requestBase: string) {
+    if (!products.length) return [];
+    const ids = products.map((p) => String(p._id));
+    const assets = await this.fileModel
+      .find({ ownerType: 'product', ownerId: { $in: ids } })
+      .sort('-createdAt')
+      .lean()
+      .exec();
+    const base = this.configuredBaseUrl || requestBase;
+    const byOwner = new Map<string, Record<string, any>[]>();
+    for (const a of assets) {
+      const list = byOwner.get(a.ownerId!) ?? [];
+      list.push(this.fileView(a, base));
+      byOwner.set(a.ownerId!, list);
+    }
+    return products.map((p) => Object.assign(this.plain(p), { files: byOwner.get(String(p._id)) ?? [] }));
+  }
+
+  async create(user: AuthUser, dto: Record<string, any>, requestBase: string) {
     const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
-    return new this.productModel({ ...dto, companyId }).save();
+    const created = await new this.productModel({ ...dto, companyId }).save();
+    return this.attachFiles(created, requestBase);
   }
 
   /**
@@ -30,7 +96,7 @@ export class ProductsService {
     limit?: number;
     companyId?: string;
     q?: string;
-  }) {
+  }, requestBase: string) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
     const filter: Record<string, any> = {};
@@ -42,7 +108,7 @@ export class ProductsService {
     } else {
       Object.assign(filter, await this.tenancy.companyFilter(user, query.companyId));
     }
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.productModel
         .find(filter)
         .skip((page - 1) * limit)
@@ -51,26 +117,37 @@ export class ProductsService {
         .exec(),
       this.productModel.countDocuments(filter).exec(),
     ]);
+    const data = await this.attachFilesToMany(rows, requestBase);
     return { data, total, page, limit };
   }
 
-  async findById(user: AuthUser | null, id: string) {
+  async findById(user: AuthUser | null, id: string, requestBase: string) {
     const product = await this.productModel.findById(id).exec();
     if (!user || user.role === Role.CUSTOMER) {
       if (!product || product.isActive === false) throw new NotFoundException('Produit introuvable');
-      return product;
+      return this.attachFiles(product, requestBase);
     }
-    return this.tenancy.assertOwns(user, product, 'Produit introuvable');
+    const owned = await this.tenancy.assertOwns(user, product, 'Produit introuvable');
+    return this.attachFiles(owned, requestBase);
   }
 
-  async update(user: AuthUser, id: string, dto: Record<string, any>) {
+  async update(user: AuthUser, id: string, dto: Record<string, any>, requestBase: string) {
     const product = await this.productModel.findById(id).exec();
     await this.tenancy.assertOwns(user, product, 'Produit introuvable');
     const updated = await this.productModel
       .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Produit introuvable');
-    return updated;
+    return this.attachFiles(updated, requestBase);
+  }
+
+  /** One product's quantity, split the way stock actually lives: a global
+   * in-stock count plus where those units currently sit (warehouse/store/
+   * field agent). See UnitsService.stockByProduct for the rules. */
+  async stock(user: AuthUser, id: string, companyId?: string) {
+    const product = await this.productModel.findById(id).exec();
+    await this.tenancy.assertOwns(user, product, 'Produit introuvable');
+    return this.unitsService.stockByProduct(user, id, companyId);
   }
 
   async remove(user: AuthUser, id: string) {

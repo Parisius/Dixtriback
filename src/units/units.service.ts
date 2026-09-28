@@ -238,6 +238,61 @@ export class UnitsService {
     return { unit, chain: unit.history };
   }
 
+  /**
+   * One product's sellable quantity, broken down the way stock actually
+   * lives: a single global count of everything `in_stock` company-wide, plus
+   * where each of those units currently sits (warehouse / store / field
+   * agent). A store's number here is always a subset of what once was in a
+   * warehouse — the same units, just re-owned by a transfer — never a
+   * separate total.
+   */
+  async stockByProduct(user: AuthUser, productId: string, companyId?: string) {
+    if (!Types.ObjectId.isValid(productId)) throw new NotFoundException('Produit introuvable');
+    const filter: Record<string, any> = {
+      productId,
+      status: UnitStatus.IN_STOCK,
+      ...(await this.tenancy.companyFilter(user, companyId)),
+    };
+
+    const byOwner = await this.unitModel.aggregate([
+      { $match: filter },
+      { $group: { _id: { ownerType: '$ownerType', ownerId: '$ownerId' }, onHand: { $sum: 1 } } },
+    ]);
+
+    const warehouseRows = byOwner.filter((r) => r._id.ownerType === UnitOwnerType.WAREHOUSE);
+    const storeRows = byOwner.filter((r) => r._id.ownerType === UnitOwnerType.STORE);
+    const agentRows = byOwner.filter((r) => r._id.ownerType === UnitOwnerType.FIELD_AGENT);
+
+    const [warehouses, stores, agents] = await Promise.all([
+      this.warehouseModel.find({ _id: { $in: warehouseRows.map((r) => r._id.ownerId) } }).select('name').lean().exec(),
+      this.storeModel.find({ _id: { $in: storeRows.map((r) => r._id.ownerId) } }).select('name').lean().exec(),
+      this.userModel.find({ _id: { $in: agentRows.map((r) => r._id.ownerId) } }).select('name').lean().exec(),
+    ]);
+    const nameOf = (rows: any[], id: string) => rows.find((r) => String(r._id) === id)?.name ?? null;
+
+    const totalInStock = byOwner.reduce((sum, r) => sum + r.onHand, 0);
+
+    return {
+      productId,
+      totalInStock,
+      byWarehouse: warehouseRows.map((r) => ({
+        warehouseId: r._id.ownerId,
+        name: nameOf(warehouses, r._id.ownerId),
+        onHand: r.onHand,
+      })),
+      byStore: storeRows.map((r) => ({
+        storeId: r._id.ownerId,
+        name: nameOf(stores, r._id.ownerId),
+        onHand: r.onHand,
+      })),
+      byFieldAgent: agentRows.map((r) => ({
+        fieldAgentId: r._id.ownerId,
+        name: nameOf(agents, r._id.ownerId),
+        onHand: r.onHand,
+      })),
+    };
+  }
+
   private generateSerial() {
     const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
     return `SN-${Date.now().toString(36).toUpperCase()}-${rand}`;

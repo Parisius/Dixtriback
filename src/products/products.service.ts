@@ -43,8 +43,13 @@ export class ProductsService {
     };
   }
 
+  /** Documents saved before `media` was dropped from the schema still carry
+   * it (Mongo is `strict: false`, so it isn't stripped on read) — remove it
+   * explicitly so the API never emits it, regardless of what's stored. */
   private plain(product: any) {
-    return typeof product.toObject === 'function' ? product.toObject() : product;
+    const obj = typeof product.toObject === 'function' ? product.toObject() : { ...product };
+    delete obj.media;
+    return obj;
   }
 
   /** Every image/document attached to a product (see the Files endpoints),

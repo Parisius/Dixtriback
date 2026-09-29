@@ -17,7 +17,25 @@ export class ShipmentsService {
 
   async create(user: AuthUser, dto: Record<string, any>) {
     const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
+    this.validateManifest(dto.manifest);
     return new this.shipmentModel({ ...dto, companyId }).save();
+  }
+
+  /** Catches the empty-or-quantityless manifest at creation/update time,
+   * instead of letting it through and only failing later at /receive —
+   * each line needs a productId and a quantity > 0. */
+  private validateManifest(manifest: unknown) {
+    if (!Array.isArray(manifest) || manifest.length === 0) {
+      throw new BadRequestException('Le manifeste doit contenir au moins une ligne (productId, quantity, unitCost).');
+    }
+    for (const line of manifest) {
+      if (!line?.productId) {
+        throw new BadRequestException('Chaque ligne du manifeste doit avoir un "productId".');
+      }
+      if (!(Number(line?.quantity) > 0)) {
+        throw new BadRequestException(`Ligne invalide pour le produit ${line.productId} : "quantity" doit être un nombre supérieur à 0.`);
+      }
+    }
   }
 
   async findAll(user: AuthUser, page = 1, limit = 20, companyId?: string, status?: string) {
@@ -43,6 +61,7 @@ export class ShipmentsService {
 
   async update(user: AuthUser, id: string, dto: Record<string, any>) {
     await this.findById(user, id);
+    if (dto.manifest !== undefined) this.validateManifest(dto.manifest);
     const updated = await this.shipmentModel
       .findByIdAndUpdate(id, { $set: this.tenancy.stripImmutable(dto) }, { new: true })
       .exec();

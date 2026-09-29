@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
 import { CreateShipmentDto, ReceiveShipmentDto, UpdateShipmentDto } from './dto/shipment.dto';
@@ -55,5 +55,19 @@ export class ShipmentsController {
   })
   receive(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReceiveShipmentDto) {
     return this.shipmentsService.receive(user, id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('shipments.delete')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Supprimer une expédition non traitée',
+    description:
+      'Suppression réelle, mais réservée aux expéditions encore au statut `ordered` (jamais réceptionnées, ' +
+      "donc aucune unité créée). Une expédition déjà reçue ne peut pas être supprimée — cela casserait la traçabilité de ses unités.",
+  })
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.shipmentsService.remove(user, id);
   }
 }

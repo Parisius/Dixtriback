@@ -38,6 +38,37 @@ export class CreatePurchaseOrderDto {
   lines: Record<string, any>[];
 }
 
+export class UpdatePurchaseOrderDto {
+  @ApiPropertyOptional({ example: 'Conteneur Cotonou — octobre' })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  supplierId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  incoterms?: string;
+
+  @ApiPropertyOptional({ type: [Object], description: 'Remplace toutes les lignes : { productId, quantity, unitCost, ... }' })
+  @IsOptional()
+  @IsArray()
+  // explicit type: without it, implicit conversion turns each object item into []
+  @Type(() => Object)
+  lines?: Record<string, any>[];
+}
+
 export class ApprovePurchaseOrderDto {
   @ApiPropertyOptional()
   @IsOptional()

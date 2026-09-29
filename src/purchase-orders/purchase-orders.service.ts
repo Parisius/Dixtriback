@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -6,6 +6,7 @@ import {
   PurchaseOrderDocument,
   PurchaseOrderStatus,
 } from './schemas/purchase-order.schema';
+import { Shipment, ShipmentDocument } from '../shipments/schemas/shipment.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 
@@ -13,6 +14,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 export class PurchaseOrdersService {
   constructor(
     @InjectModel(PurchaseOrder.name) private purchaseOrderModel: Model<PurchaseOrderDocument>,
+    @InjectModel(Shipment.name) private shipmentModel: Model<ShipmentDocument>,
     private tenancy: TenancyService,
   ) {}
 
@@ -69,5 +71,29 @@ export class PurchaseOrdersService {
       .exec();
     if (!updated) throw new NotFoundException('Bon de commande introuvable');
     return updated;
+  }
+
+  /**
+   * Soft delete: cancels the order rather than removing the record (same
+   * "never lose traceability" rule as everywhere else in this API). Refused
+   * if already cancelled/fulfilled, or if a shipment already references it —
+   * once goods are moving, the shipment is what needs handling, not the PO.
+   */
+  async remove(user: AuthUser, id: string) {
+    const po = await this.findById(user, id);
+    if (po.status === PurchaseOrderStatus.CANCELLED) {
+      throw new ConflictException('Ce bon de commande est déjà annulé.');
+    }
+    if (po.status === PurchaseOrderStatus.FULFILLED) {
+      throw new ConflictException('Un bon de commande déjà honoré ne peut pas être annulé.');
+    }
+    const hasShipment = await this.shipmentModel.exists({ purchaseOrderId: id });
+    if (hasShipment) {
+      throw new ConflictException(
+        "Une expédition existe déjà pour ce bon de commande ; gérez ou supprimez d'abord l'expédition.",
+      );
+    }
+    po.status = PurchaseOrderStatus.CANCELLED;
+    return po.save();
   }
 }

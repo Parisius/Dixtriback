@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PurchaseOrdersService } from './purchase-orders.service';
-import { CreatePurchaseOrderDto, ApprovePurchaseOrderDto } from './dto/purchase-order.dto';
+import { CreatePurchaseOrderDto, ApprovePurchaseOrderDto, UpdatePurchaseOrderDto } from './dto/purchase-order.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
@@ -44,7 +44,7 @@ export class PurchaseOrdersController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
   @RequirePermission('purchase-orders.update')
   @ApiOperation({ summary: 'Mettre à jour un bon de commande' })
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: Record<string, any>) {
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdatePurchaseOrderDto) {
     return this.purchaseOrdersService.update(user, id, dto);
   }
 
@@ -54,5 +54,18 @@ export class PurchaseOrdersController {
   @ApiOperation({ summary: 'Approuver un bon de commande' })
   approve(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ApprovePurchaseOrderDto) {
     return this.purchaseOrdersService.approve(user, id, dto?.approvedBy);
+  }
+
+  @Delete(':id')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @RequirePermission('purchase-orders.delete')
+  @ApiOperation({
+    summary: 'Annuler un bon de commande',
+    description:
+      "Passe le statut à `cancelled` (le bon de commande n'est jamais vraiment supprimé). Refusé si déjà " +
+      "annulé/honoré, ou si une expédition existe déjà pour ce bon de commande.",
+  })
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.purchaseOrdersService.remove(user, id);
   }
 }

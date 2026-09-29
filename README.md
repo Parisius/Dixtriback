@@ -333,3 +333,15 @@ Une unité = un exemplaire physique sérialisé. Elles ne sont **créées qu'à 
 `GET /v1/purchase-orders?q=` cherche dans le nom (insensible à la casse). Les bons créés avant cet ajout n'ont
 simplement pas de nom.
 
+## Suppression : bons de commande et expéditions
+
+Ni l'un ni l'autre n'est jamais vraiment effacé au premier — même règle que le reste de l'API (produits,
+boutiques : `DELETE` = désactivation, pas suppression) :
+
+- **`DELETE /v1/purchase-orders/:id`** — passe le statut à `cancelled`, ne supprime pas le document. Refusé
+  (`409`) si déjà `cancelled`/`fulfilled`, ou si une expédition référence déjà ce bon (gérer/supprimer
+  l'expédition d'abord).
+- **`DELETE /v1/shipments/:id`** — suppression réelle (`204`), mais réservée à une expédition encore au
+  statut `ordered` (jamais réceptionnée). Une fois reçue, ses unités sérialisées pointent vers elle
+  (`Unit.shipmentId`) : la supprimer casserait leur traçabilité, donc c'est refusé (`409`).
+

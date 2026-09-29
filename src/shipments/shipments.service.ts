@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Shipment, ShipmentDocument, ShipmentStatus } from './schemas/shipment.schema';
@@ -67,6 +67,23 @@ export class ShipmentsService {
       .exec();
     if (!updated) throw new NotFoundException('Expédition introuvable');
     return updated;
+  }
+
+  /**
+   * Hard delete — but only while nothing real-world has happened yet.
+   * `receive()` is the only thing that moves a shipment off `ordered` (and
+   * the only thing that creates units), so "still ordered" alone guarantees
+   * no unit anywhere has this shipment as its origin. Once it's past that,
+   * deleting would orphan those units' traceability, so it's refused.
+   */
+  async remove(user: AuthUser, id: string) {
+    const shipment = await this.findById(user, id);
+    if (shipment.status !== ShipmentStatus.ORDERED) {
+      throw new ConflictException(
+        `Impossible de supprimer : cette expédition est déjà au statut "${shipment.status}". Seule une expédition encore "ordered" (jamais réceptionnée) peut être supprimée.`,
+      );
+    }
+    await this.shipmentModel.deleteOne({ _id: id }).exec();
   }
 
   /**

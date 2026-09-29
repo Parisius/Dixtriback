@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ShipmentsService } from './shipments.service';
-import { CreateShipmentDto, ReceiveShipmentDto } from './dto/shipment.dto';
+import { CreateShipmentDto, ReceiveShipmentDto, UpdateShipmentDto } from './dto/shipment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.enum';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
@@ -43,7 +43,7 @@ export class ShipmentsController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.WAREHOUSE_MANAGER)
   @RequirePermission('shipments.update')
   @ApiOperation({ summary: "Mettre à jour une expédition (statut, manifeste, coûts)" })
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: Record<string, any>) {
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateShipmentDto) {
     return this.shipmentsService.update(user, id, dto);
   }
 

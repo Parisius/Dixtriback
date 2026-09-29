@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
-import { ShipmentType } from '../schemas/shipment.schema';
+import { IsArray, IsBoolean, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
+import { ShipmentStatus, ShipmentType } from '../schemas/shipment.schema';
 import { Type } from 'class-transformer';
 
 export class CreateShipmentDto {
@@ -37,6 +37,36 @@ export class CreateShipmentDto {
   @ApiProperty()
   @IsString()
   destinationWarehouseId: string;
+}
+
+export class UpdateShipmentDto {
+  @ApiPropertyOptional({ enum: ShipmentStatus })
+  @IsOptional()
+  @IsEnum(ShipmentStatus)
+  status?: ShipmentStatus;
+
+  @ApiPropertyOptional({
+    type: [Object],
+    description: 'Remplace tout le manifeste. Chaque ligne : { productId, quantity, unitCost, ... }.',
+  })
+  @IsOptional()
+  @IsArray()
+  // explicit type: without it, implicit conversion turns each object item into []
+  @Type(() => Object)
+  manifest?: Record<string, any>[];
+
+  @ApiPropertyOptional({
+    description: 'Fusionné dans les coûts existants, ex. { "freight": 200 }.',
+    example: { freight: 0, duties: 0, handling: 0 },
+  })
+  @IsOptional()
+  @IsObject()
+  landedCosts?: { freight?: number; duties?: number; handling?: number };
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  destinationWarehouseId?: string;
 }
 
 export class ReceiveShipmentDto {

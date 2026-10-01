@@ -18,5 +18,6 @@ import { User, UserSchema } from '../users/schemas/user.schema';
   ],
   controllers: [FilesController],
   providers: [FilesService],
+  exports: [FilesService],
 })
 export class FilesModule {}

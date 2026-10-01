@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
@@ -10,6 +11,9 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 import { RequirePermission } from '../common/decorators/permission.decorator';
 
 const baseUrl = (req: Request) => `${req.protocol}://${req.get('host')}`;
+/** Read once at load: the multer limit must be static at decoration time. */
+const MAX_UPLOAD_BYTES = parseInt(process.env.MAX_UPLOAD_BYTES || String(10 * 1024 * 1024), 10);
+const MAX_FILES_ON_CREATE = 10;
 
 @ApiTags('Catalog')
 @Controller('products')
@@ -20,15 +24,43 @@ export class ProductsController {
   @ApiBearerAuth()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @RequirePermission('products.create')
-  @ApiOperation({
-    summary: 'Créer un produit',
-    description:
-      "La réponse inclut `files: []` (toujours vide à la création — image et documents s'ajoutent " +
-      'ensuite via `POST /v1/files` avec `ownerType=product`, `ownerId=<id du produit>`). Chaque entrée ' +
-      'de `files` est un simple lien : `{ url, name?, kind }`.',
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['sku', 'name', 'basePrice'],
+      properties: {
+        sku: { type: 'string' },
+        name: { type: 'string' },
+        category: { type: 'string' },
+        basePrice: { type: 'number' },
+        companyId: { type: 'string', description: "Requis pour un super admin ; sinon déduit du compte." },
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: "Jusqu'à 10 images/documents, attachés au produit dès sa création (même pipeline que POST /v1/files).",
+        },
+      },
+    },
   })
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreateProductDto, @Req() req: Request) {
-    return this.productsService.create(user, dto, baseUrl(req));
+  @ApiOperation({
+    summary: 'Créer un produit (avec images/documents en option)',
+    description:
+      "Multipart : les champs du produit + un ou plusieurs `files`, en un seul appel — plus besoin d'un " +
+      "second `POST /v1/files` juste après. Chaque fichier passe par la même vérification de type (contenu, " +
+      "pas en-tête) et les mêmes règles que l'upload dédié. La réponse inclut `files` : la liste de ce qui a " +
+      "été accepté — chaque entrée un simple lien `{ url, name?, kind }` — et, si un fichier a été refusé " +
+      "(type non autorisé, etc.), `fileErrors: [{ filename, error }]` ; le produit est créé dans tous les cas. " +
+      "Ces mêmes `files` réapparaissent ensuite sur `GET /v1/products` et `GET /v1/products/:id`.",
+  })
+  @UseInterceptors(FilesInterceptor('files', MAX_FILES_ON_CREATE, { limits: { fileSize: MAX_UPLOAD_BYTES } }))
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateProductDto,
+    @Req() req: Request,
+    @UploadedFiles() files?: Express.Multer.File[],
+  ) {
+    return this.productsService.create(user, dto, baseUrl(req), files);
   }
 
   @Get()
@@ -56,7 +88,10 @@ export class ProductsController {
   @Get(':id')
   @OptionalAuth()
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Consulter le détail d'un produit (produit actif pour la vitrine)" })
+  @ApiOperation({
+    summary: "Consulter le détail d'un produit (produit actif pour la vitrine)",
+    description: "Inclut `files` : la liste des images/documents rattachés, qu'ils aient été ajoutés à la création ou via `POST /v1/files`.",
+  })
   findOne(@CurrentUser() user: AuthUser | null, @Param('id') id: string, @Req() req: Request) {
     return this.productsService.findById(user, id, baseUrl(req));
   }

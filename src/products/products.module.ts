@@ -5,6 +5,7 @@ import { ProductsController } from './products.controller';
 import { Product, ProductSchema } from './schemas/product.schema';
 import { FileAsset, FileAssetSchema } from '../files/schemas/file-asset.schema';
 import { UnitsModule } from '../units/units.module';
+import { FilesModule } from '../files/files.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { UnitsModule } from '../units/units.module';
       { name: FileAsset.name, schema: FileAssetSchema },
     ]),
     UnitsModule,
+    FilesModule,
   ],
   controllers: [ProductsController],
   providers: [ProductsService],

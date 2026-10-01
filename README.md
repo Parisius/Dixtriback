@@ -282,6 +282,11 @@ Un seul endpoint pour tout : photos de produit, logo de boutique / d'entreprise,
   (`kind` = `image` ou `document`, `name` est le nom d'origine du fichier, facultatif). `url` pointe
   toujours vers le contenu réel (`/public` pour une image, `/content` pour un document privé — un jeton
   est alors requis, comme pour tout appel authentifié). Il n'y a plus de champ `media` séparé.
+- **Fichiers dès la création** — `POST /v1/products` accepte aussi le multipart : les champs du produit
+  + un ou plusieurs `files`, en un seul appel (même vérification de type que l'upload dédié). Un fichier
+  refusé n'annule pas la création : il est listé dans `fileErrors: [{ filename, error }]`, le produit existe
+  quand même. On peut toujours attacher des fichiers après coup via `POST /v1/files`, les deux chemins
+  retombent sur le même `product.files` ensuite (`GET /v1/products`, `GET /v1/products/:id`).
 - **Types acceptés** (vérifiés sur le **contenu**, pas sur l'en-tête) : jpg, png, webp, gif, PDF,
   Word/Excel/PowerPoint, txt, csv. SVG, HTML et scripts sont refusés (`415`). Taille max `MAX_UPLOAD_BYTES`
   (10 Mo par défaut, `413` au-delà). 20 fichiers max par élément.

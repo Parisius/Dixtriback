@@ -4,6 +4,8 @@ import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { FileAsset, FileAssetDocument } from '../files/schemas/file-asset.schema';
+import { FilesService } from '../files/files.service';
+import { OwnerType } from '../files/schemas/file-asset.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { Role } from '../common/constants/roles.enum';
 import { UnitsService } from '../units/units.service';
@@ -21,6 +23,7 @@ export class ProductsService {
     @InjectModel(FileAsset.name) private fileModel: Model<FileAssetDocument>,
     private tenancy: TenancyService,
     private unitsService: UnitsService,
+    private filesService: FilesService,
     config: ConfigService,
   ) {
     this.apiPrefix = config.get<string>('apiPrefix')!;
@@ -87,10 +90,30 @@ export class ProductsService {
     return products.map((p) => Object.assign(this.plain(p), { files: byOwner.get(String(p._id)) ?? [] }));
   }
 
-  async create(user: AuthUser, dto: Record<string, any>, requestBase: string) {
-    const companyId = await this.tenancy.companyForCreate(user, dto.companyId);
-    const created = await new this.productModel({ ...dto, companyId }).save();
-    return this.attachFiles(created, requestBase);
+  /**
+   * `files` (optional, multipart) are uploaded right after the product is
+   * created, one by one through the same pipeline as POST /files (magic-byte
+   * type check, S3, FileAsset) — the product must exist first since a file's
+   * ownership check looks it up by id. A bad file (wrong type, etc.) does
+   * NOT roll back the product: it's reported in `fileErrors` instead, so one
+   * bad image can't block the whole creation.
+   */
+  async create(user: AuthUser, dto: Record<string, any>, requestBase: string, files?: Express.Multer.File[]) {
+    const { files: _ignored, ...rest } = dto; // never trust a client-sent `files` field
+    const companyId = await this.tenancy.companyForCreate(user, rest.companyId);
+    const created = await new this.productModel({ ...rest, companyId }).save();
+
+    const fileErrors: { filename: string; error: string }[] = [];
+    for (const file of files ?? []) {
+      try {
+        await this.filesService.upload(user, file, { ownerType: OwnerType.PRODUCT, ownerId: created.id }, requestBase);
+      } catch (err: any) {
+        fileErrors.push({ filename: file.originalname, error: err?.message ?? 'Échec du téléversement.' });
+      }
+    }
+
+    const result = await this.attachFiles(created, requestBase);
+    return fileErrors.length ? { ...result, fileErrors } : result;
   }
 
   /**

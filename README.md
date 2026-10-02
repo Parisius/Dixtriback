@@ -269,9 +269,9 @@ les rôles fixes.
 ## Fichiers & images (`/v1/files`)
 
 Un seul endpoint pour tout : photos de produit, logo de boutique / d'entreprise, avatar, documents.
-`POST /v1/files` (multipart, champ `file`) + `ownerType` (`product|store|company|user`) et `ownerId`
-(l'entreprise est déduite du propriétaire) ; sans propriétaire = document libre de l'entreprise.
-`GET /v1/files?ownerType=&ownerId=&kind=&purpose=`, `GET /v1/files/:id`, `DELETE /v1/files/:id`.
+`POST /v1/files` (multipart, champ `file`) + `attachedToType` (`product|store|company|user`) et
+`attachedToId` (l'entreprise est déduite de la cible) ; sans cible = document libre de l'entreprise.
+`GET /v1/files?attachedToType=&attachedToId=&kind=&purpose=`, `GET /v1/files/:id`, `DELETE /v1/files/:id`.
 
 - **Visibilité** — les **images de produit sont publiques** : le champ `url` (`/v1/files/:id/public`, sans
   connexion) et apparaît dans `product.files`, donc la vitrine les affiche directement. **Tout le reste est

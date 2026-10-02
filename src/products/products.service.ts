@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { FileAsset, FileAssetDocument } from '../files/schemas/file-asset.schema';
 import { FilesService } from '../files/files.service';
-import { OwnerType } from '../files/schemas/file-asset.schema';
+import { AttachedToType } from '../files/schemas/file-asset.schema';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { Role } from '../common/constants/roles.enum';
 import { UnitsService } from '../units/units.service';
@@ -62,7 +62,7 @@ export class ProductsService {
     requestBase: string,
   ): Promise<T & { files: Record<string, any>[] }> {
     const assets = await this.fileModel
-      .find({ ownerType: 'product', ownerId: String((product as any)._id) })
+      .find({ attachedToType: 'product', attachedToId: String((product as any)._id) })
       .sort('-createdAt')
       .lean()
       .exec();
@@ -76,16 +76,16 @@ export class ProductsService {
     if (!products.length) return [];
     const ids = products.map((p) => String(p._id));
     const assets = await this.fileModel
-      .find({ ownerType: 'product', ownerId: { $in: ids } })
+      .find({ attachedToType: 'product', attachedToId: { $in: ids } })
       .sort('-createdAt')
       .lean()
       .exec();
     const base = this.configuredBaseUrl || requestBase;
     const byOwner = new Map<string, Record<string, any>[]>();
     for (const a of assets) {
-      const list = byOwner.get(a.ownerId!) ?? [];
+      const list = byOwner.get(a.attachedToId!) ?? [];
       list.push(this.fileView(a, base));
-      byOwner.set(a.ownerId!, list);
+      byOwner.set(a.attachedToId!, list);
     }
     return products.map((p) => Object.assign(this.plain(p), { files: byOwner.get(String(p._id)) ?? [] }));
   }
@@ -106,7 +106,7 @@ export class ProductsService {
     const fileErrors: { filename: string; error: string }[] = [];
     for (const file of files ?? []) {
       try {
-        await this.filesService.upload(user, file, { ownerType: OwnerType.PRODUCT, ownerId: created.id }, requestBase);
+        await this.filesService.upload(user, file, { attachedToType: AttachedToType.PRODUCT, attachedToId: created.id }, requestBase);
       } catch (err: any) {
         fileErrors.push({ filename: file.originalname, error: err?.message ?? 'Échec du téléversement.' });
       }

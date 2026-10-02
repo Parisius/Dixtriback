@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type FileAssetDocument = FileAsset & Document;
 
-export enum OwnerType {
+export enum AttachedToType {
   PRODUCT = 'product',
   STORE = 'store',
   COMPANY = 'company',
@@ -37,11 +37,14 @@ export class FileAsset {
   @Prop({ required: true, enum: ['image', 'document'] })
   kind: 'image' | 'document';
 
-  @Prop({ type: String, enum: [...Object.values(OwnerType), null], default: null })
-  ownerType: OwnerType | null;
+  /** Which kind of record this file is attached to — a polymorphic
+   * reference: paired with `attachedToId`, it points at one product, store,
+   * company or user. `null` = a standalone company document, attached to nothing. */
+  @Prop({ type: String, enum: [...Object.values(AttachedToType), null], default: null })
+  attachedToType: AttachedToType | null;
 
   @Prop({ type: String, default: null })
-  ownerId: string | null;
+  attachedToId: string | null;
 
   /** Free label, e.g. "logo", "avatar", "gallery", "invoice". */
   @Prop({ type: String, default: null })
@@ -56,4 +59,4 @@ export class FileAsset {
 }
 
 export const FileAssetSchema = SchemaFactory.createForClass(FileAsset);
-FileAssetSchema.index({ ownerType: 1, ownerId: 1 });
+FileAssetSchema.index({ attachedToType: 1, attachedToId: 1 });

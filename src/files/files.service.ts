@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
-import { FileAsset, FileAssetDocument, OwnerType } from './schemas/file-asset.schema';
+import { FileAsset, FileAssetDocument, AttachedToType } from './schemas/file-asset.schema';
 import { detectType } from './file-types';
 import { StorageService } from '../storage/storage.service';
 import { TenancyService } from '../tenancy/tenancy.service';
@@ -25,13 +25,13 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 
 const MAX_FILES_PER_OWNER = 20;
 
-/** Who may attach/remove files on each kind of owner: the fixed roles that can
+/** Who may attach/remove files on each kind of target: the fixed roles that can
  * edit that entity, or a custom role holding the matching permission. */
-const OWNER_EDIT_RULES: Record<string, { roles: Role[]; permission: string }> = {
-  [OwnerType.PRODUCT]: { roles: [Role.SUPER_ADMIN, Role.ADMIN], permission: 'products.update' },
-  [OwnerType.STORE]: { roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.SHOP_MANAGER], permission: 'stores.update' },
-  [OwnerType.COMPANY]: { roles: [Role.SUPER_ADMIN, Role.ADMIN], permission: 'companies.update' },
-  [OwnerType.USER]: { roles: [Role.SUPER_ADMIN, Role.ADMIN], permission: 'users.update' },
+const ATTACH_EDIT_RULES: Record<string, { roles: Role[]; permission: string }> = {
+  [AttachedToType.PRODUCT]: { roles: [Role.SUPER_ADMIN, Role.ADMIN], permission: 'products.update' },
+  [AttachedToType.STORE]: { roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.SHOP_MANAGER], permission: 'stores.update' },
+  [AttachedToType.COMPANY]: { roles: [Role.SUPER_ADMIN, Role.ADMIN], permission: 'companies.update' },
+  [AttachedToType.USER]: { roles: [Role.SUPER_ADMIN, Role.ADMIN], permission: 'users.update' },
   none: { roles: [Role.SUPER_ADMIN, Role.ADMIN], permission: 'files.delete' },
 };
 
@@ -42,8 +42,8 @@ export interface FileView {
   contentType: string;
   size: number;
   kind: string;
-  ownerType: string | null;
-  ownerId: string | null;
+  attachedToType: string | null;
+  attachedToId: string | null;
   purpose: string | null;
   isPublic: boolean;
   uploadedBy: string;
@@ -93,8 +93,8 @@ export class FilesService {
       contentType: a.contentType,
       size: a.size,
       kind: a.kind,
-      ownerType: a.ownerType ?? null,
-      ownerId: a.ownerId ?? null,
+      attachedToType: a.attachedToType ?? null,
+      attachedToId: a.attachedToId ?? null,
       purpose: a.purpose ?? null,
       isPublic: !!a.isPublic,
       uploadedBy: a.uploadedBy,
@@ -124,8 +124,8 @@ export class FilesService {
     return asset;
   }
 
-  private async mayEdit(user: AuthUser, ownerType: string | null): Promise<boolean> {
-    const rule = OWNER_EDIT_RULES[ownerType ?? 'none'];
+  private async mayEdit(user: AuthUser, attachedToType: string | null): Promise<boolean> {
+    const rule = ATTACH_EDIT_RULES[attachedToType ?? 'none'];
     if (rule.roles.includes(user.role as Role)) return true;
     return user.role === Role.CUSTOM && (await this.customRoles.userHasPermission(user, rule.permission));
   }
@@ -137,16 +137,16 @@ export class FilesService {
     return (name || 'fichier').slice(0, 200);
   }
 
-  /** Validates the owner and returns the company the file belongs to. */
-  private async resolveOwner(user: AuthUser, ownerType: OwnerType, ownerId: string): Promise<string | null> {
-    if (!Types.ObjectId.isValid(ownerId)) throw new NotFoundException('Propriétaire introuvable');
+  /** Validates the target and returns the company the file belongs to. */
+  private async resolveTarget(user: AuthUser, attachedToType: AttachedToType, attachedToId: string): Promise<string | null> {
+    if (!Types.ObjectId.isValid(attachedToId)) throw new NotFoundException('Élément introuvable');
 
-    if (ownerType === OwnerType.USER) {
-      const target = await this.userModel.findById(ownerId).exec();
+    if (attachedToType === AttachedToType.USER) {
+      const target = await this.userModel.findById(attachedToId).exec();
       if (!target) throw new NotFoundException('Utilisateur introuvable');
       const self = target.id === user.userId;
       if (!self) {
-        if (!(await this.mayEdit(user, OwnerType.USER))) {
+        if (!(await this.mayEdit(user, AttachedToType.USER))) {
           throw new ForbiddenException("Seul un admin peut modifier la photo d'un autre utilisateur.");
         }
         await this.tenancy.assertOwns(user, target, 'Utilisateur introuvable');
@@ -154,21 +154,21 @@ export class FilesService {
       return target.companyId ? String(target.companyId) : null;
     }
 
-    if (!(await this.mayEdit(user, ownerType))) {
-      throw new ForbiddenException(`Ce rôle ne peut pas ajouter de fichier à cet élément (${ownerType}).`);
+    if (!(await this.mayEdit(user, attachedToType))) {
+      throw new ForbiddenException(`Ce rôle ne peut pas ajouter de fichier à cet élément (${attachedToType}).`);
     }
-    if (ownerType === OwnerType.PRODUCT) {
-      const p = await this.productModel.findById(ownerId).exec();
+    if (attachedToType === AttachedToType.PRODUCT) {
+      const p = await this.productModel.findById(attachedToId).exec();
       await this.tenancy.assertOwns(user, p, 'Produit introuvable');
       return String(p!.companyId);
     }
-    if (ownerType === OwnerType.STORE) {
-      const s = await this.storeModel.findById(ownerId).exec();
+    if (attachedToType === AttachedToType.STORE) {
+      const s = await this.storeModel.findById(attachedToId).exec();
       await this.tenancy.assertOwns(user, s, 'Boutique introuvable');
       return String(s!.companyId);
     }
     // company
-    return this.tenancy.assertCompany(user, ownerId);
+    return this.tenancy.assertCompany(user, attachedToId);
   }
 
   // ---- upload --------------------------------------------------------------
@@ -176,13 +176,13 @@ export class FilesService {
   async upload(
     user: AuthUser,
     file: Express.Multer.File | undefined,
-    dto: { ownerType?: OwnerType; ownerId?: string; companyId?: string; purpose?: string },
+    dto: { attachedToType?: AttachedToType; attachedToId?: string; companyId?: string; purpose?: string },
     requestBase: string,
   ): Promise<FileView> {
     if (!file) throw new BadRequestException('Aucun fichier reçu (champ multipart "file").');
     if (!file.size) throw new BadRequestException('Le fichier est vide.');
-    if (!!dto.ownerType !== !!dto.ownerId) {
-      throw new BadRequestException('ownerType et ownerId vont ensemble.');
+    if (!!dto.attachedToType !== !!dto.attachedToId) {
+      throw new BadRequestException('attachedToType et attachedToId vont ensemble.');
     }
 
     const originalName = this.sanitizeName(file.originalname);
@@ -194,12 +194,14 @@ export class FilesService {
     }
 
     let companyId: string | null;
-    if (dto.ownerType && dto.ownerId) {
-      companyId = await this.resolveOwner(user, dto.ownerType, dto.ownerId);
+    if (dto.attachedToType && dto.attachedToId) {
+      companyId = await this.resolveTarget(user, dto.attachedToType, dto.attachedToId);
       if (dto.companyId && companyId && dto.companyId !== companyId) {
-        throw new BadRequestException("companyId ne correspond pas à l'entreprise du propriétaire.");
+        throw new BadRequestException("companyId ne correspond pas à l'entreprise de l'élément.");
       }
-      const existing = await this.fileModel.countDocuments({ ownerType: dto.ownerType, ownerId: dto.ownerId }).exec();
+      const existing = await this.fileModel
+        .countDocuments({ attachedToType: dto.attachedToType, attachedToId: dto.attachedToId })
+        .exec();
       if (existing >= MAX_FILES_PER_OWNER) {
         throw new ConflictException(`Maximum ${MAX_FILES_PER_OWNER} fichiers par élément.`);
       }
@@ -207,9 +209,9 @@ export class FilesService {
       companyId = await this.tenancy.companyForCreate(user, dto.companyId);
     }
 
-    const isPublic = dto.ownerType === OwnerType.PRODUCT && detected.kind === 'image';
+    const isPublic = dto.attachedToType === AttachedToType.PRODUCT && detected.kind === 'image';
     const key = this.storage.buildKey(
-      `${companyId ?? 'platform'}/${dto.ownerType ?? 'misc'}/${crypto.randomUUID()}.${detected.ext}`,
+      `${companyId ?? 'platform'}/${dto.attachedToType ?? 'misc'}/${crypto.randomUUID()}.${detected.ext}`,
     );
 
     await this.storage.put(key, file.buffer, detected.mime);
@@ -223,8 +225,8 @@ export class FilesService {
         contentType: detected.mime,
         size: file.size,
         kind: detected.kind,
-        ownerType: dto.ownerType ?? null,
-        ownerId: dto.ownerId ?? null,
+        attachedToType: dto.attachedToType ?? null,
+        attachedToId: dto.attachedToId ?? null,
         purpose: dto.purpose ?? null,
         isPublic,
         uploadedBy: user.userId,
@@ -241,7 +243,7 @@ export class FilesService {
 
   async findAll(
     user: AuthUser,
-    q: { page?: number; limit?: number; companyId?: string; ownerType?: string; ownerId?: string; kind?: string; purpose?: string },
+    q: { page?: number; limit?: number; companyId?: string; attachedToType?: string; attachedToId?: string; kind?: string; purpose?: string },
     requestBase: string,
   ) {
     const page = Math.max(Number(q.page) || 1, 1);
@@ -251,8 +253,8 @@ export class FilesService {
       q.companyId ? scope : { $or: [scope, { companyId: null, uploadedBy: user.userId }] },
     ];
     const s = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
-    if (s(q.ownerType)) conditions.push({ ownerType: s(q.ownerType) });
-    if (s(q.ownerId)) conditions.push({ ownerId: s(q.ownerId) });
+    if (s(q.attachedToType)) conditions.push({ attachedToType: s(q.attachedToType) });
+    if (s(q.attachedToId)) conditions.push({ attachedToId: s(q.attachedToId) });
     if (s(q.kind)) conditions.push({ kind: s(q.kind) });
     if (s(q.purpose)) conditions.push({ purpose: s(q.purpose) });
     const filter = { $and: conditions };
@@ -290,8 +292,8 @@ export class FilesService {
   async publicContent(id: string) {
     const asset = await this.load(id);
     if (!asset.isPublic) throw new NotFoundException('Fichier introuvable');
-    if (asset.ownerType === OwnerType.PRODUCT && asset.ownerId) {
-      const product = await this.productModel.findById(asset.ownerId).select('isActive').lean().exec();
+    if (asset.attachedToType === AttachedToType.PRODUCT && asset.attachedToId) {
+      const product = await this.productModel.findById(asset.attachedToId).select('isActive').lean().exec();
       if (!product || product.isActive === false) throw new NotFoundException('Fichier introuvable');
     }
     return this.stream(asset, true, 'public, max-age=3600');
@@ -338,7 +340,7 @@ export class FilesService {
 
   async remove(user: AuthUser, id: string) {
     const asset = await this.loadAccessible(user, id);
-    if (asset.uploadedBy !== user.userId && !(await this.mayEdit(user, asset.ownerType))) {
+    if (asset.uploadedBy !== user.userId && !(await this.mayEdit(user, asset.attachedToType))) {
       throw new ForbiddenException("Vous ne pouvez pas supprimer ce fichier.");
     }
     await this.storage.delete(asset.key);

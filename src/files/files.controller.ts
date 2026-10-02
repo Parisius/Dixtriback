@@ -28,7 +28,7 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 /** Read once at load: the multer limit must be static at decoration time. */
 const MAX_UPLOAD_BYTES = parseInt(process.env.MAX_UPLOAD_BYTES || String(10 * 1024 * 1024), 10);
 
-/** Every active staff role may upload; WHAT they may attach a file to is decided per owner type in the service. */
+/** Every active staff role may upload; WHAT they may attach a file to is decided per attachedToType in the service. */
 const STAFF = [
   Role.SUPER_ADMIN, Role.ADMIN, Role.DIRECTOR, Role.FINANCIAL_MANAGER, Role.ACCOUNTANT, Role.SALES_MANAGER,
   Role.MARKETING_MANAGER, Role.WAREHOUSE_MANAGER, Role.REGIONAL_SUPERVISOR, Role.SHOP_MANAGER, Role.CASHIER,
@@ -52,8 +52,8 @@ export class FilesController {
       required: ['file'],
       properties: {
         file: { type: 'string', format: 'binary', description: 'Image (jpg/png/webp/gif), PDF, Word/Excel/PowerPoint, txt ou csv' },
-        ownerType: { type: 'string', enum: ['product', 'store', 'company', 'user'] },
-        ownerId: { type: 'string' },
+        attachedToType: { type: 'string', enum: ['product', 'store', 'company', 'user'] },
+        attachedToId: { type: 'string' },
         companyId: { type: 'string' },
         purpose: { type: 'string', example: 'logo' },
       },
@@ -63,9 +63,9 @@ export class FilesController {
     summary: 'Téléverser un fichier (image ou document)',
     description:
       "Un seul endpoint pour tout : photo de produit, logo de boutique/entreprise, avatar, document. " +
-      "Rattachez-le avec `ownerType` + `ownerId` (l'entreprise en est déduite). Les images de produit sont " +
-      "publiques (champ `url`) et apparaissent dans `product.files` ; tout le reste est privé à l'entreprise. " +
-      "Le type réel est vérifié sur le contenu ; taille max 10 Mo par défaut.",
+      "Rattachez-le avec `attachedToType` + `attachedToId` (l'entreprise en est déduite). Les images de " +
+      "produit sont publiques (champ `url`) et apparaissent dans `product.files` ; tout le reste est privé " +
+      "à l'entreprise. Le type réel est vérifié sur le contenu ; taille max 10 Mo par défaut.",
   })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10, fieldSize: 2048 } }))
   upload(
@@ -79,9 +79,9 @@ export class FilesController {
 
   @Get()
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lister les fichiers (filtrables par propriétaire, type, libellé)' })
-  @ApiQuery({ name: 'ownerType', required: false })
-  @ApiQuery({ name: 'ownerId', required: false })
+  @ApiOperation({ summary: 'Lister les fichiers (filtrables par cible, type, libellé)' })
+  @ApiQuery({ name: 'attachedToType', required: false })
+  @ApiQuery({ name: 'attachedToId', required: false })
   @ApiQuery({ name: 'kind', required: false, enum: ['image', 'document'] })
   @ApiQuery({ name: 'purpose', required: false })
   findAll(@CurrentUser() user: AuthUser, @Query() query: Record<string, any>, @Req() req: Request) {
